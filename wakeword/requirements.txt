@@ -1,0 +1,21 @@
+# Окружение обучения слова пробуждения (проверено: Windows 11, Python 3.12, CPU). Без WSL.
+# Ставится скриптом setup_windows.ps1; microWakeWord и audio-metadata — из git (см. скрипт).
+tensorflow==2.21.0
+keras==3.15.1
+numpy==2.5.4
+scipy==1.18.1
+soundfile==0.14.0
+pyyaml==6.0.3
+pymicro-features==2.0.2
+audiomentations==0.43.1
+mmap_ninja==0.9.0
+webrtcvad-wheels==2.0.14.post1
+ai-edge-litert==2.3.0
+datasets==3.6.0     # 4+ требует torchcodec (ffmpeg) для декодирования аудио — на Windows проблемно
+pyarrow==26.0.0
+omegaconf==2.4.0
+num2words==0.5.14
+ziglang            # C-компилятор для теста паритета фронтенда (если нет gcc/clang)
+pytest
+# torch CPU ставится отдельно: pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+tensorboard             # нужен обучению (tf.summary)

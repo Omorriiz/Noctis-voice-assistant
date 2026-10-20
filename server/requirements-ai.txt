@@ -1,0 +1,12 @@
+# Voice pipeline (GPU machine). Install torch for your CUDA build first:
+#   https://pytorch.org/get-started/locally/  (RTX 50xx needs a CUDA 12.8+ build)
+-r requirements.txt
+faster-whisper
+ollama
+numpy
+scipy
+soundfile
+torch
+torchaudio
+num2words
+psutil

@@ -1,0 +1,20 @@
+# Core API (enough for the REST API, DB and tests)
+fastapi>=0.110
+uvicorn[standard]>=0.29
+sqlalchemy>=2.0
+alembic>=1.13
+pyjwt>=2.8
+pydantic>=2.6
+pydantic-settings>=2.2
+email-validator>=2.1
+numpy>=1.26
+httpx>=0.27
+pytest>=8.0
+# Stage 5: time zones, audio tags, audio decoding (MP3/FLAC/Vorbis/WAV) without ffmpeg
+tzdata>=2024.1
+mutagen>=1.47
+miniaudio>=1.60
+lameenc>=1.7        # только для тестов: кодирует тестовый MP3
+# Погода: приведение названия города к начальной форме и склонение при озвучивании (русский)
+pymorphy3>=2.0
+pymorphy3-dicts-ru>=2.4

@@ -1,0 +1,13 @@
+# Name,    Type, SubType, Offset,    Size,     Flags
+# 16 MB flash. Два слота приложения (OTA) + модели esp-sr + зарезервированные разделы.
+nvs,       data, nvs,     0x9000,    0x6000,
+otadata,   data, ota,     0xf000,    0x2000,
+phy_init,  data, phy,     0x11000,   0x1000,
+ota_0,     app,  ota_0,   0x20000,   3M,
+ota_1,     app,  ota_1,   0x320000,  3M,
+# Адрес "model" используется в flash_models.py (MODEL_OFFSET) — меняйте вместе
+model,     data, spiffs,  0x620000,  8M,
+# Этап 4: модели слова пробуждения (microWakeWord), загружаются без перепрошивки приложения
+wakeword,  data, 0x40,    0xE20000,  1M,
+# Звуки сигналов (таймер, будильник) — этап 5
+storage,   data, spiffs,  0xF20000,  0xE0000,

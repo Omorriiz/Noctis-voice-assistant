@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noctis Console</title>
+<style>
+:root { --bg:#10131a; --card:#181c26; --line:#2a3040; --fg:#e6e9f0; --mut:#8b93a7; --acc:#6aa8ff; --ok:#4cc38a; --bad:#ff6b6b; --warn:#f0b429; --shadow:0 8px 30px rgba(0,0,0,.45); }
+@media (prefers-color-scheme: light) { :root { --bg:#f3f5f9; --card:#fff; --line:#d9deea; --fg:#1b2030; --mut:#667089; --acc:#2563eb; --ok:#15803d; --bad:#c62828; --warn:#a16207; --shadow:0 8px 30px rgba(20,30,60,.2); } }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:110px; }
+body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui, "Segoe UI", sans-serif; padding-bottom:250px; }
+header { position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--line); }
+.top { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 16px; }
+.top h1 { font-size:16px; margin:0; } .top .sp { flex:1; }
+nav { display:flex; flex-wrap:wrap; gap:4px; padding:0 16px 8px; }
+nav a { color:var(--mut); text-decoration:none; padding:2px 10px; border-radius:99px; border:1px solid transparent; font-size:13px; }
+nav a:hover { color:var(--fg); border-color:var(--line); }
+main { max-width:1000px; margin:0 auto; padding:0 16px; }
+section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:14px 0; position:relative; }
+section h2 { font-size:15px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+section .lead { color:var(--mut); margin:0 0 10px; font-size:13px; }
+h3 { font-size:13px; margin:16px 0 6px; color:var(--mut); font-weight:600; }
+.row { display:flex; flex-wrap:wrap; gap:8px; align-items:end; margin:6px 0; }
+label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--mut); }
+label.inline { flex-direction:row; align-items:center; gap:6px; color:var(--fg); font-size:13px; }
+input, select, button, textarea { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 9px; }
+input:focus, select:focus, button:focus-visible { outline:2px solid var(--acc); outline-offset:1px; }
+input[type=checkbox], input[type=range] { padding:0; }
+button { cursor:pointer; background:var(--acc); border-color:var(--acc); color:#fff; transition:filter .1s; }
+button:hover:not(:disabled) { filter:brightness(1.1); }
+button.sec { background:transparent; color:var(--fg); border-color:var(--line); }
+button.sec:hover:not(:disabled) { border-color:var(--acc); }
+button.bad { background:transparent; color:var(--bad); border-color:var(--bad); }
+button:disabled { opacity:.5; cursor:progress; }
+button.help, a.help { width:22px; height:22px; padding:0; border-radius:50%; font-size:12px; line-height:20px; text-align:center; background:transparent; color:var(--mut); border:1px solid var(--line); cursor:pointer; text-decoration:none; display:inline-block; }
+button.help:hover, a.help:hover { color:var(--acc); border-color:var(--acc); }
+table { width:100%; border-collapse:collapse; } td, th { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+th { color:var(--mut); font-weight:600; font-size:12px; }
+.pill { display:inline-block; padding:1px 9px; border-radius:99px; font-size:12px; border:1px solid var(--line); }
+.on { color:var(--ok); border-color:var(--ok); } .off { color:var(--mut); }
+.mut { color:var(--mut); } .bad-t { color:var(--bad); } .ok-t { color:var(--ok); }
+code, pre, kbd { font-family:ui-monospace, Consolas, monospace; font-size:12px; }
+kbd { border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; }
+.box { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; word-break:break-all; white-space:pre-wrap; }
+.warnbox { border-color:var(--warn); }
+.hidden { display:none !important; }
+.empty { color:var(--mut); padding:10px 6px; }
+/* шаги */
+#steps { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 0; }
+.step { flex:1 1 180px; border:1px solid var(--line); background:var(--card); border-radius:10px; padding:8px 12px; display:flex; gap:10px; align-items:center; }
+.step i { width:24px; height:24px; border-radius:50%; border:2px solid var(--line); display:grid; place-items:center; font-style:normal; font-size:12px; color:var(--mut); flex:none; }
+.step.done i { background:var(--ok); border-color:var(--ok); color:#fff; }
+.step.now { border-color:var(--acc); } .step.now i { border-color:var(--acc); color:var(--acc); }
+.step b { display:block; font-size:13px; } .step span { font-size:12px; color:var(--mut); }
+#next { margin:8px 0 0; padding:8px 12px; border-radius:8px; background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid var(--acc); }
+/* блокировка разделов */
+section.locked > * { opacity:.3; pointer-events:none; user-select:none; }
+section.locked::after { content:attr(data-lock); position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); text-align:center; font-weight:600; color:var(--fg); }
+/* подсказки, уведомления */
+#tip { position:fixed; z-index:200; max-width:300px; background:#0b0e14; color:#e6e9f0; border:1px solid #39425a; border-radius:6px; padding:6px 9px; font-size:12px; line-height:1.4; pointer-events:none; box-shadow:var(--shadow); opacity:0; transition:opacity .1s; }
+#toasts { position:fixed; top:70px; right:14px; z-index:150; display:flex; flex-direction:column; gap:8px; max-width:380px; }
+.toast { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--ok); border-radius:8px; padding:8px 12px; box-shadow:var(--shadow); animation:in .15s; word-break:break-word; }
+.toast.err { border-left-color:var(--bad); } .toast small { display:block; color:var(--mut); }
+@keyframes in { from { opacity:0; transform:translateY(-6px); } }
+/* журнал */
+#log { position:fixed; left:0; right:0; bottom:0; height:230px; background:var(--card); border-top:2px solid var(--line); overflow:auto; padding:6px 12px; z-index:9; transition:height .15s; }
+#log.min { height:34px; overflow:hidden; }
+#log .e { border-bottom:1px solid var(--line); padding:3px 0; }
+#log summary { cursor:pointer; }
+#log .bar { display:flex; gap:8px; align-items:center; position:sticky; top:-6px; background:var(--card); padding:2px 0; }
+/* руководство */
+#guide { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.6); display:none; align-items:flex-start; justify-content:center; padding:4vh 12px; }
+#guide.open { display:flex; }
+#guide .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; width:min(860px,100%); max-height:92vh; display:flex; flex-direction:column; box-shadow:var(--shadow); }
+#guide .ph { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line); }
+#guide .ph h2 { margin:0; font-size:16px; flex:1; }
+#guide .pb { display:flex; min-height:0; flex:1; }
+#guide .toc { flex:0 0 200px; padding:10px; border-right:1px solid var(--line); overflow:auto; display:flex; flex-direction:column; gap:2px; }
+#guide .toc a { color:var(--mut); text-decoration:none; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:13px; }
+#guide .toc a:hover, #guide .toc a.cur { background:var(--bg); color:var(--fg); }
+#guide .body { position:relative; flex:1; overflow:auto; padding:6px 20px 24px; scroll-behavior:smooth; }
+#guide .body h3 { color:var(--fg); font-size:15px; margin:22px 0 6px; }
+#guide .body p, #guide .body li { color:var(--fg); }
+#guide .body ol, #guide .body ul { padding-left:20px; margin:6px 0; }
+#guide .note { border-left:3px solid var(--warn); background:var(--bg); padding:6px 10px; border-radius:0 6px 6px 0; margin:8px 0; }
+#guide table td:first-child { white-space:nowrap; font-weight:600; width:1%; }
+@media (max-width:640px) { #guide .toc { display:none; } .step { flex-basis:100%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Noctis Console</h1>
+    <span id="who" class="mut" data-tip="Текущий пользователь и его роль (user или admin)">не выполнен вход</span>
+    <span class="sp"></span>
+    <label class="inline" data-tip="Колонка, которой управляют все разделы ниже. Если колонок несколько — выберите нужную.">Колонка:
+      <select id="devSel"><option value="">— нет —</option></select>
+    </label>
+    <button class="sec" id="btnLogout" data-tip="Завершить сессию и забыть токены в этом браузере">Выйти</button>
+    <button id="btnGuide" data-tip="Открыть руководство по странице (клавиша F1)">❓ Руководство</button>
+  </div>
+  <nav>
+    <a href="#secAuth">Аккаунт</a><a href="#secDev">Устройства</a><a href="#secSet">Настройки</a>
+    <a href="#secSch">Таймеры</a><a href="#secMus">Музыка</a><a href="#secHist">История и OTA</a>
+  </nav>
+</header>
+
+<main>
+<div id="steps"></div>
+<div id="next"></div>
+
+<!-- ============ Аккаунт ============ -->
+<section id="secAuth">
+  <h2>1. Аккаунт <a class="help" data-guide="auth" data-tip="Подробнее в руководстве">?</a></h2>
+  <p class="lead">Первый вход: заполните поля, отметьте согласие и нажмите «Зарегистрироваться». В следующий раз — просто «Войти».</p>
+  <div class="row">
+    <label data-tip="Адрес для входа. Можно придумать любой в правильном формате, например me@example.com">Email <input id="email" type="email" autocomplete="username" placeholder="you@example.com"></label>
+    <label data-tip="Не короче 8 символов. Хранится на сервере только в виде хэша.">Пароль <input id="password" type="password" autocomplete="current-password" placeholder="минимум 8 символов"></label>
+    <label data-tip="Как к вам обращаться (необязательно)">Имя <input id="dname" placeholder="необязательно"></label>
+    <label data-tip="Язык интерфейса профиля по умолчанию; язык самой колонки задаётся в разделе «Настройки»">Язык
+      <select id="rlang"><option>ru</option><option>en</option><option>es</option><option>de</option><option>fr</option></select>
+    </label>
+  </div>
+  <div class="row">
+    <label class="inline" data-tip="Без этой отметки сервер не примет регистрацию (согласие на обработку персональных данных, 152-ФЗ)"><input id="consent" type="checkbox"> Согласен(на) на обработку персональных данных</label>
+  </div>
+  <div class="row">
+    <button id="btnRegister" data-tip="Создать новый аккаунт и сразу войти">Зарегистрироваться</button>
+    <button class="sec" id="btnLogin" data-tip="Войти в существующий аккаунт (email и пароль из полей выше)">Войти</button>
+    <button class="sec" id="btnMe" data-tip="Показать данные профиля в журнале внизу">Профиль</button>
+  </div>
+</section>
+
+<!-- ============ Устройства ============ -->
+<section id="secDev" class="locked" data-lock="Сначала войдите в аккаунт">
+  <h2>2. Колонки и сопряжение <a class="help" data-guide="devices" data-tip="Подробнее в руководстве">?</a></h2>
+  <p class="lead">Создайте запись о колонке — сервер выдаст ей идентификатор и секретный токен. Затем свяжите реальную плату с сервером командой сопряжения.</p>
+  <div class="row">
+    <label data-tip="Любое название, например «Кухня»">Название <input id="newName" value="Noctis"></label>
+    <label data-tip="Часовой пояс колонки в формате IANA: Europe/Moscow, Europe/Berlin, Asia/Almaty… Влияет на «который час» и будильники.">Часовой пояс <input id="newTz" value="Europe/Moscow"></label>
+    <button id="btnCreate" data-tip="Создать запись о колонке. Токен будет показан один раз — сохраните его.">Создать колонку</button>
+    <button class="sec" id="btnDevices" data-tip="Обновить список и статусы (страница и так обновляет их каждые 4 секунды)">Обновить</button>
+  </div>
+  <div id="tokenBox" class="box warnbox hidden"></div>
+  <table id="devTable"><thead><tr><th>Название</th><th data-tip="Публичный идентификатор колонки в API">public_id</th><th data-tip="Онлайн — колонка сейчас подключена к серверу по WebSocket">Статус</th><th>Прошивка</th><th>Была на связи</th><th></th></tr></thead><tbody></tbody></table>
+
+  <h3>Команда сопряжения по Bluetooth (выполняется на ПК, пока плата в режиме сопряжения)</h3>
+  <div class="row">
+    <label data-tip="Имя Bluetooth-устройства, которое плата показывает на экране после сброса, вида NOCTIS_A1B2C3">Имя BLE с экрана <input id="pName" placeholder="NOCTIS_A1B2C3"></label>
+    <label data-tip="8-значный код сопряжения с экрана платы (Proof of Possession)">Код с экрана <input id="pPop" placeholder="12345678" size="10"></label>
+    <label data-tip="Адрес этого ПК в вашей домашней сети и порт, например 192.168.0.136:8000. НЕ localhost: плата должна видеть ПК по сети. Узнать адрес: команда ipconfig.">Адрес сервера в сети <input id="pServer" placeholder="192.168.0.136:8000"></label>
+  </div>
+  <div class="row">
+    <label data-tip="Имя вашей Wi-Fi сети. ESP32-S3 работает только на частоте 2,4 ГГц.">Wi-Fi (2,4 ГГц) <input id="pSsid"></label>
+    <label data-tip="Пароль Wi-Fi. Попадает только в команду ниже, на сервер не отправляется и не сохраняется.">Пароль Wi-Fi <input id="pWifi" type="password"></label>
+    <label data-tip="Секретный токен колонки: подставляется автоматически при создании. Потеряли — удалите колонку и создайте заново.">device_token <input id="pToken" size="34" placeholder="появится после создания колонки"></label>
+  </div>
+  <div class="box" id="pairCmd"></div>
+  <div class="row"><button class="sec" id="btnCopyPair" data-tip="Скопировать команду в буфер обмена. Вставьте её в PowerShell в папке server.">Копировать команду</button>
+    <span class="mut">Выполнять в PowerShell, в папке <code>server</code>.</span></div>
+</section>
+
+<!-- ============ Настройки ============ -->
+<section id="secSet" class="locked" data-lock="Сначала создайте колонку">
+  <h2>3. Настройки колонки <a class="help" data-guide="settings" data-tip="Подробнее в руководстве">?</a></h2>
+  <p class="lead">Изменения сохраняются на сервере и сразу отправляются на включённую колонку; выключенная получит их при подключении.</p>
+  <div class="row">
+    <label data-tip="Язык, на котором колонка понимает команды и отвечает">Язык <select id="sLang"></select></label>
+    <label data-tip="Мужской или женский голос озвучки (для русского женский — Ксения)">Голос <select id="sVoice"><option value="female">женский</option><option value="male">мужской</option></select></label>
+    <label data-tip="Стиль общения ассистента: подсказка с описанием появляется при наведении на пункт">Характер <select id="sChar"></select></label>
+    <label data-tip="Слово, на которое колонка просыпается. Если у слова пометка «модель не загружена», колонка скачает её с сервера только когда модель там появится.">Слово пробуждения <select id="sWake"></select></label>
+  </div>
+  <div class="row">
+    <label data-tip="Громкость колонки 0–100. Музыка играет на 50 % от этой громкости, чтобы колонка слышала команды.">Громкость: <b id="volVal"></b><input id="sVol" type="range" min="0" max="100"></label>
+    <label data-tip="Часовой пояс IANA, например Europe/Moscow">Часовой пояс <input id="sTz"></label>
+    <button id="btnSaveSet" data-tip="Сохранить настройки и отправить их на колонку">Сохранить</button>
+    <button class="sec" id="btnLoadSet" data-tip="Отменить несохранённые правки и загрузить текущие настройки с сервера">Загрузить с сервера</button>
+  </div>
+  <div class="row">
+    <button class="sec" id="btnPreview" data-tip="Синтезировать пример фразы выбранным голосом и воспроизвести в браузере. Нужны загруженные модели голоса.">🔊 Прослушать голос</button>
+    <button class="sec" id="btnTime" data-tip="Показать, какое время сервер считает местным для этой колонки">🕒 Время колонки</button>
+    <button class="sec" id="btnReboot" data-tip="Отправить колонке команду перезагрузки (колонка должна быть онлайн)">↻ Перезагрузить</button>
+    <span id="setInfo" class="mut"></span>
+  </div>
+</section>
+
+<!-- ============ Таймеры и будильники ============ -->
+<section id="secSch" class="locked" data-lock="Сначала создайте колонку">
+  <h2>4. Таймеры и будильники <a class="help" data-guide="schedule" data-tip="Подробнее в руководстве">?</a></h2>
+  <p class="lead">То же, что голосом («Нильс, поставь таймер на 5 минут»), только кнопками. Таймеры и будильники хранятся и на сервере, и на плате.</p>
+  <div class="row">
+    <label data-tip="Длительность в секундах, от 1 до 86400 (сутки)">Секунд <input id="tSec" type="number" min="1" max="86400" value="60" style="width:90px"></label>
+    <label data-tip="Необязательная подпись таймера">Название <input id="tLabel"></label>
+    <button id="btnTimer" data-tip="Запустить таймер. По окончании колонка играет мелодию и говорит «Таймер завершён».">Поставить таймер</button>
+  </div>
+  <table id="timerTable"><tbody></tbody></table>
+
+  <h3>Будильник</h3>
+  <div class="row">
+    <label data-tip="Час, 0–23">Час <input id="aH" type="number" min="0" max="23" value="7" style="width:64px"></label>
+    <label data-tip="Минута, 0–59">Минута <input id="aM" type="number" min="0" max="59" value="30" style="width:64px"></label>
+    <label data-tip="Для однократного будильника на конкретный день. Если не нужна — оставьте пустой.">Дата <input id="aDate" type="date"></label>
+    <label data-tip="Звук будильника">Мелодия <select id="aMel"><option value="default">стандартная</option><option value="soft">мягкая</option><option value="rooster">петух</option><option value="beeps">гудки</option></select></label>
+    <label data-tip="Необязательная подпись">Название <input id="aLabel"></label>
+  </div>
+  <div class="row" id="aDays" data-tip="Дни повтора. Ничего не отмечено и дата пуста — будильник сработает один раз в ближайшее такое время."></div>
+  <div class="row"><button id="btnAlarm" data-tip="Добавить будильник. Колонка сработает по нему даже без связи с сервером.">Добавить будильник</button>
+    <span class="mut">Дни и дата не выбраны — прозвенит один раз в ближайшее такое время.</span></div>
+  <table id="alarmTable"><tbody></tbody></table>
+</section>
+
+<!-- ============ Музыка ============ -->
+<section id="secMus" class="locked" data-lock="Сначала войдите в аккаунт">
+  <h2>5. Музыка <a class="help" data-guide="music" data-tip="Подробнее в руководстве">?</a></h2>
+  <p class="lead">Три источника: ваша папка с файлами, интернет-радио и Jamendo. Чтобы что-то играть, колонка должна быть онлайн.</p>
+  <div class="row">
+    <span id="playerInfo" class="pill off" data-tip="Состояние плеера: stopped — не играет, playing — играет, paused — пауза">остановлено</span>
+    <button class="sec" data-pl="pause" data-tip="Поставить на паузу">⏸ Пауза</button>
+    <button class="sec" data-pl="resume" data-tip="Продолжить воспроизведение">▶ Продолжить</button>
+    <button class="sec" data-pl="prev" data-tip="Предыдущий трек">⏮ Назад</button>
+    <button class="sec" data-pl="next" data-tip="Следующий трек">⏭ Дальше</button>
+    <button class="bad" data-pl="stop" data-tip="Остановить воспроизведение">⏹ Стоп</button>
+  </div>
+  <div class="row">
+    <label data-tip="Название трека, исполнитель, жанр или станция. Пусто — играть всё из выбранного источника.">Что включить <input id="mQuery" placeholder="название, исполнитель, жанр"></label>
+    <label data-tip="Откуда брать музыку">Источник <select id="mSrc"><option value="local">моя библиотека</option><option value="radio">радио</option><option value="jamendo">Jamendo</option></select></label>
+    <button id="btnPlayQ" data-tip="Найти и включить на колонке">▶ Играть</button>
+  </div>
+
+  <h3>Моя библиотека</h3>
+  <div class="row">
+    <input id="upFile" type="file" accept=".mp3,.flac,.ogg,.wav" multiple data-tip="Выберите один или несколько файлов MP3, FLAC, OGG или WAV (до 60 МБ каждый)">
+    <button id="btnUpload" data-tip="Загрузить выбранные файлы в вашу папку на сервере">Загрузить</button>
+    <button class="sec" id="btnScan" data-tip="Подхватить файлы, которые вы положили в папку data/music/<ваш id>/ вручную">Пересканировать папку</button>
+    <button class="sec" id="btnTracks" data-tip="Обновить списки ниже">Обновить</button>
+  </div>
+  <table id="trackTable"><tbody></tbody></table>
+
+  <h3>Интернет-радио</h3>
+  <div class="row">
+    <label data-tip="Как назвать станцию. Голосом: «Нильс, включи радио <название>»">Название <input id="rName"></label>
+    <label data-tip="Прямая ссылка на MP3-поток станции (http или https). Потоки AAC и HLS (.m3u8) не поддерживаются.">Ссылка на поток <input id="rUrl" size="40" placeholder="http://…"></label>
+    <button id="btnRadio" data-tip="Сохранить станцию в ваш список">Добавить станцию</button>
+  </div>
+  <table id="radioTable"><tbody></tbody></table>
+
+  <h3>Jamendo (бесплатная музыка)</h3>
+  <div class="row">
+    <label data-tip="Жанр, название или исполнитель на английском, например jazz">Поиск <input id="jQ" placeholder="jazz"></label>
+    <button class="sec" id="btnJam" data-tip="Искать на Jamendo. Нужен NOCTIS_JAMENDO_CLIENT_ID в файле server/.env.">Найти</button>
+  </div>
+  <table id="jamTable"><tbody></tbody></table>
+</section>
+
+<!-- ============ История, OTA ============ -->
+<section id="secHist" class="locked" data-lock="Сначала создайте колонку">
+  <h2>6. История и обновление прошивки <a class="help" data-guide="hist" data-tip="Подробнее в руководстве">?</a></h2>
+  <div class="row">
+    <button class="sec" id="btnHist" data-tip="Показать последние 30 диалогов: что вы сказали и что ответила колонка">Показать историю диалогов</button>
+    <button class="bad" id="btnHistDel" data-tip="Безвозвратно удалить все диалоги этой колонки">Очистить историю</button>
+  </div>
+  <table id="histTable"><tbody></tbody></table>
+  <h3>Обновление прошивки по воздуху (OTA)</h3>
+  <div class="row">
+    <label data-tip="Номер версии вида 1.2.3. Должен быть выше установленной на колонке.">Версия <input id="otaVer" placeholder="0.5.0" style="width:90px"></label>
+    <input id="otaFile" type="file" accept=".bin" data-tip="Файл прошивки .bin (после сборки: firmware/.pio/build/.../firmware.bin)">
+    <button class="sec" id="btnOtaUp" data-tip="Загрузить образ на сервер. Только для администратора.">1. Загрузить образ</button>
+    <button class="sec" id="btnOtaStart" data-tip="Дать колонке команду скачать и установить эту версию. Колонка должна быть онлайн.">2. Отправить на колонку</button>
+    <button class="sec" id="btnOtaState" data-tip="Показать ход обновления">Статус</button>
+  </div>
+</section>
+</main>
+
+<div id="log"><div class="bar"><b>Журнал запросов</b><span class="mut">— каждый вызов API и ответ сервера</span>
+  <button class="sec" id="btnClearLog" style="padding:1px 8px" data-tip="Очистить журнал">очистить</button>
+  <button class="sec" id="btnMinLog" style="padding:1px 8px" data-tip="Свернуть или развернуть журнал">свернуть</button></div></div>
+<div id="toasts"></div>
+<div id="tip"></div>
+
+<!-- ============ Руководство ============ -->
+<div id="guide" role="dialog" aria-modal="true" aria-label="Руководство">
+  <div class="panel">
+    <div class="ph"><h2>Руководство по странице Noctis Console</h2><button class="sec" id="btnGuideClose" data-tip="Закрыть (Esc)">✕ Закрыть</button></div>
+    <div class="pb">
+      <div class="toc" id="toc"></div>
+      <div class="body" id="gbody">
+<h3 id="g-intro">Для чего эта страница</h3>
+<p>Это рабочее место для проверки колонки без мобильного приложения: здесь можно создать аккаунт, зарегистрировать колонку, настроить её, поставить таймер, включить музыку и посмотреть, что отвечает сервер. Страница работает только на этом сервере и ничего не отправляет в интернет.</p>
+<div class="note">Все действия выполняет настоящий API (<code>/docs</code>). Каждый запрос виден в журнале внизу — если что-то не работает, сначала посмотрите там.</div>
+
+<h3 id="g-quick">Быстрый старт</h3>
+<ol>
+<li>В разделе <b>«1. Аккаунт»</b> введите email и пароль (от 8 символов), отметьте согласие и нажмите <b>«Зарегистрироваться»</b>.</li>
+<li>В разделе <b>«2. Колонки»</b> нажмите <b>«Создать колонку»</b>. Появится жёлтая рамка с <code>public_id</code> и <code>device_token</code> — <b>токен показывается один раз</b>.</li>
+<li>Включите плату после сброса: на её экране появятся имя <code>NOCTIS_XXXXXX</code> и 8-значный код. Введите их и данные Wi-Fi в блок «Команда сопряжения», скопируйте команду и выполните её в PowerShell в папке <code>server</code>.</li>
+<li>Когда колонка подключится, её статус станет <span class="pill on">онлайн</span>, а шаг 3 вверху страницы зелёным.</li>
+<li>В разделе <b>«3. Настройки»</b> выберите язык, голос и слово пробуждения, нажмите «Сохранить».</li>
+<li>Скажите «Нильс, поставь таймер на минуту» — или поставьте его кнопкой в разделе «4».</li>
+</ol>
+
+<h3 id="g-steps">Полоса шагов вверху</h3>
+<p>Три карточки показывают, где вы находитесь: <b>вход</b> → <b>колонка создана</b> → <b>колонка онлайн</b>. Синяя рамка — текущий шаг, зелёный кружок — сделано. Под ними — подсказка, что делать дальше. Разделы, которые ещё не доступны, затемнены и подписаны.</p>
+
+<h3 id="g-auth">1. Аккаунт</h3>
+<table>
+<tr><td>Зарегистрироваться</td><td>Создаёт аккаунт и сразу входит. Нужна отметка согласия.</td></tr>
+<tr><td>Войти</td><td>Вход по email и паролю. Сессия хранится в этом браузере и продлевается автоматически.</td></tr>
+<tr><td>Выйти</td><td>Кнопка в шапке: завершает сессию на сервере и стирает токены из браузера.</td></tr>
+<tr><td>Профиль</td><td>Показывает в журнале ваши данные (email, роль, настройки профиля).</td></tr>
+</table>
+<div class="note">Администратор (нужен для загрузки прошивки OTA) назначается только на сервере, из этой страницы это сделать нельзя.</div>
+
+<h3 id="g-devices">2. Колонки и сопряжение</h3>
+<ul>
+<li><b>Создать колонку</b> — запись в базе. Платы пока не касается.</li>
+<li><b>Таблица</b> — все ваши колонки. «Онлайн» значит, что колонка прямо сейчас подключена к серверу. «Была на связи» — время последнего подключения.</li>
+<li><b>Команда сопряжения</b> — собирается автоматически из полей. Она по Bluetooth передаёт плате адрес сервера, идентификатор, токен и Wi-Fi. После этого плата сама подключается к серверу и ничего вводить больше не нужно.</li>
+<li><b>Адрес сервера в сети</b> — адрес ПК в домашней сети (например <code>192.168.0.136:8000</code>), а не <code>localhost</code>. Узнать: команда <code>ipconfig</code>, строка IPv4 вашего Ethernet или Wi-Fi.</li>
+<li>Плата должна быть в режиме сопряжения: после первого включения или после удержания кнопки BOOT 5 секунд.</li>
+<li>Потеряли токен — удалите колонку (кнопка «Удалить») и создайте заново: сервер хранит токен только в виде хэша и показать его снова не может.</li>
+</ul>
+
+<h3 id="g-settings">3. Настройки колонки</h3>
+<table>
+<tr><td>Язык</td><td>Язык команд и ответов: русский, английский, испанский, немецкий, французский.</td></tr>
+<tr><td>Голос</td><td>Мужской или женский.</td></tr>
+<tr><td>Характер</td><td>Стиль ответов (дружелюбный, официальный, юмористический…). Описание — в подсказке к пункту списка.</td></tr>
+<tr><td>Слово пробуждения</td><td>«Нильс» по умолчанию. После смены колонка перезапускается (≈ 5 с).</td></tr>
+<tr><td>Громкость</td><td>0–100; применяется сразу. Музыка играет на половине этой громкости.</td></tr>
+<tr><td>Часовой пояс</td><td>Для «который час» и будильников.</td></tr>
+<tr><td>🔊 Прослушать голос</td><td>Проверка синтеза речи в браузере, без колонки.</td></tr>
+<tr><td>🕒 Время колонки</td><td>Показывает местное время, которое сервер передаёт колонке.</td></tr>
+<tr><td>↻ Перезагрузить</td><td>Команда перезагрузки; колонка должна быть онлайн.</td></tr>
+</table>
+
+<h3 id="g-schedule">4. Таймеры и будильники</h3>
+<ul>
+<li><b>Таймер</b>: от 1 секунды до суток. В списке идёт обратный отсчёт; кнопки ⏸ и ▶ — пауза и продолжение, ✕ — отмена. Максимум 8 таймеров.</li>
+<li><b>Будильник</b>: час и минута плюс <i>или</i> дни недели (повтор), <i>или</i> дата (один раз), <i>или</i> ничего (один раз в ближайшее время). Кнопка «включён/выключен» временно отключает будильник. Максимум 16 будильников.</li>
+<li>Расписание хранится и на плате: будильник зазвонит, даже если связь с сервером пропала. Остановить звонок: слово пробуждения или кнопка BOOT.</li>
+<li>Пока колонка не узнала время (сразу после включения, до подключения к сети) таймеры и будильники молчат — часов реального времени в плате нет.</li>
+</ul>
+
+<h3 id="g-music">5. Музыка</h3>
+<ul>
+<li><b>Моя библиотека</b>: загрузите файлы кнопкой «Загрузить» или положите их в <code>server/data/music/&lt;ваш id&gt;/</code> и нажмите «Пересканировать». ▶ играет трек, ✕ удаляет.</li>
+<li><b>Радио</b>: нужна прямая ссылка на MP3-поток. Голосом: «Нильс, включи радио &lt;название&gt;».</li>
+<li><b>Jamendo</b>: бесплатные треки по лицензиям Creative Commons. Нужен свой <code>NOCTIS_JAMENDO_CLIENT_ID</code> в <code>server/.env</code> (регистрация на developer.jamendo.com), после чего сервер нужно перезапустить.</li>
+<li><b>Что включить / Источник / Играть</b> — быстрый поиск: например источник «библиотека» и слово «джаз».</li>
+<li>Кнопки управления плеером действуют, только пока что-то играет.</li>
+<li>Голосом: «Нильс, включи музыку», «пауза», «дальше», «назад», «громче».</li>
+</ul>
+
+<h3 id="g-hist">6. История и обновление</h3>
+<ul>
+<li><b>История</b> — последние диалоги колонки. Если в профиле выключено сохранение истории, список будет пустым. «Очистить» удаляет всё безвозвратно.</li>
+<li><b>OTA</b>: 1) выберите файл <code>.bin</code> и версию (выше установленной), нажмите «Загрузить образ» (нужна роль администратора); 2) нажмите «Отправить на колонку»; 3) «Статус» показывает ход. Если новая прошивка не подключится к серверу за 90 секунд, плата откатится сама.</li>
+</ul>
+
+<h3 id="g-log">Журнал запросов</h3>
+<p>Внизу страницы записываются все обращения к серверу: зелёное число — успех, красное — ошибка (такая запись раскрывается сама). Нажмите на строку, чтобы увидеть ответ. Кнопки «очистить» и «свернуть» — справа вверху журнала.</p>
+
+<h3 id="g-errors">Если что-то не получается</h3>
+<table>
+<tr><td>401 Not authenticated</td><td>Сессия закончилась — войдите снова.</td></tr>
+<tr><td>409 Device is offline</td><td>Колонка не подключена к серверу: проверьте питание, Wi-Fi и статус в таблице.</td></tr>
+<tr><td>409 limit</td><td>Достигнут предел таймеров (8) или будильников (16).</td></tr>
+<tr><td>422</td><td>Неверное значение поля; текст ошибки в журнале и в уведомлении.</td></tr>
+<tr><td>403</td><td>Нужна роль администратора (например, для загрузки прошивки).</td></tr>
+<tr><td>429</td><td>Слишком много запросов подряд — подождите минуту.</td></tr>
+<tr><td>503 Voice pipeline</td><td>Модели голоса на сервере не загружены (сервер запущен без них).</td></tr>
+<tr><td>503 Jamendo</td><td>Не задан <code>NOCTIS_JAMENDO_CLIENT_ID</code>.</td></tr>
+<tr><td>502 …</td><td>Внешний сервис (Jamendo, радио-поток) не ответил или отдал неподдерживаемый формат.</td></tr>
+<tr><td>Нет связи</td><td>Сервер остановлен или адрес страницы неверный.</td></tr>
+</table>
+
+<h3 id="g-keys">Клавиши и мелочи</h3>
+<ul>
+<li><kbd>F1</kbd> — открыть/закрыть это руководство, <kbd>Esc</kbd> — закрыть.</li>
+<li>Наведите курсор на любое поле или кнопку — появится подсказка. Кружки <span class="pill">?</span> рядом с заголовками открывают нужную главу.</li>
+<li>Токены доступа хранятся только в этом браузере (localStorage). На общем компьютере после работы нажмите «Выйти».</li>
+<li>В рабочей эксплуатации эту страницу нужно отключить: <code>NOCTIS_TEST_CONSOLE=false</code> в <code>server/.env</code>.</li>
+</ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const SKEY = "noctis_console";
+
+let auth = {access: "", refresh: ""};
+try { auth = JSON.parse(localStorage.getItem(SKEY) || "") || auth; } catch (e) {}
+let devices = [], dev = "", catalog = null;
+try { dev = localStorage.getItem(SKEY + "_dev") || ""; } catch (e) {}
+const saveAuth = () => { try { localStorage.setItem(SKEY, JSON.stringify(auth)); } catch (e) {} };
+const setTokens = tp => { auth = {access: tp.access_token, refresh: tp.refresh_token}; saveAuth(); };
+const clearAuth = () => { auth = {access: "", refresh: ""}; saveAuth(); };
+
+/* ---------------- подсказки ---------------- */
+const tipEl = $("tip");
+function showTip(t) {
+  tipEl.textContent = t.dataset.tip; tipEl.style.opacity = 1;
+  const r = t.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  let x = Math.min(Math.max(8, r.left), innerWidth - w - 8), y = r.bottom + 6;
+  if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 6);
+  tipEl.style.left = x + "px"; tipEl.style.top = y + "px";
+}
+document.addEventListener("mouseover", e => { const t = e.target.closest?.("[data-tip]"); if (t) showTip(t); else tipEl.style.opacity = 0; });
+document.addEventListener("focusin", e => { const t = e.target.closest?.("[data-tip]"); if (t) showTip(t); });
+document.addEventListener("focusout", () => tipEl.style.opacity = 0);
+document.addEventListener("scroll", () => tipEl.style.opacity = 0, true);
+document.addEventListener("click", () => tipEl.style.opacity = 0, true);
+
+/* ---------------- уведомления и журнал ---------------- */
+function toast(msg, kind, detail) {
+  const d = document.createElement("div");
+  d.className = "toast" + (kind === "err" ? " err" : "");
+  d.textContent = msg;
+  if (detail) { const s = document.createElement("small"); s.textContent = detail; d.append(s); }
+  $("toasts").append(d);
+  setTimeout(() => d.remove(), kind === "err" ? 8000 : 3500);
+  while ($("toasts").children.length > 4) $("toasts").firstChild.remove();
+}
+const ok = (m, d) => toast(m, "ok", d);
+const HINTS = {401: "Войдите заново", 403: "Нужна роль администратора", 404: "Не найдено", 409: "Действие сейчас невозможно", 413: "Файл слишком большой", 422: "Проверьте введённые значения",
+  429: "Слишком много запросов, подождите минуту", 502: "Внешний сервис не ответил", 503: "Функция не настроена на сервере"};
+function friendly(e) {
+  const detail = String(e.message || e).slice(0, 220);
+  if (e.status === 409 && /offline/i.test(detail)) return ["Колонка не в сети", "Проверьте питание и Wi-Fi колонки"];
+  if (e.status === 409 && /limit/.test(detail)) return ["Достигнут предел количества", detail];
+  if (e.status === 503 && /Jamendo/i.test(detail)) return ["Jamendo не настроен", "Укажите NOCTIS_JAMENDO_CLIENT_ID в server/.env и перезапустите сервер"];
+  if (e.status === 503 && /pipeline/i.test(detail)) return ["Модели голоса не загружены", "Сервер запущен без голосовых моделей"];
+  if (e.status === 400 || e.status === 401 || e.status === 403 || e.status === 404 || e.status === 409 || e.status === 413 || e.status === 422 || e.status === 429 || e.status >= 500) return [HINTS[e.status] || "Ошибка " + e.status, detail];
+  return ["Нет связи с сервером", "Сервер запущен? " + detail];
+}
+function log(method, path, status, data) {
+  const box = $("log"), d = document.createElement("div");
+  d.className = "e";
+  const good = status >= 200 && status < 300;
+  const det = document.createElement("details"), head = document.createElement("summary"), pre = document.createElement("pre");
+  head.innerHTML = `<span class="${good ? "ok-t" : "bad-t"}">${esc(status)}</span> <b>${esc(method)}</b> ${esc(path)}`;
+  pre.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  det.append(head, pre); if (!good) det.open = true;
+  d.append(det);
+  box.insertBefore(d, box.children[1] || null);
+  while (box.children.length > 80) box.removeChild(box.lastChild);
+}
+
+/* ---------------- API ---------------- */
+async function api(method, path, o = {}, retry = true) {
+  const headers = {};
+  if (auth.access) headers.Authorization = "Bearer " + auth.access;
+  let body;
+  if (o.json !== undefined) { headers["Content-Type"] = "application/json"; body = JSON.stringify(o.json); }
+  else if (o.body !== undefined) { headers["Content-Type"] = "application/octet-stream"; body = o.body; }
+  let r;
+  try { r = await fetch(path, {method, headers, body}); }
+  catch (e) { log(method, path, "сеть", String(e)); throw e; }
+  if (r.status === 401 && retry && auth.refresh && !path.includes("/auth/")) {
+    if (await refresh()) return api(method, path, o, false);
+  }
+  const ct = r.headers.get("content-type") || "";
+  let data;
+  if (o.blob && r.ok) data = await r.blob();
+  else if (ct.includes("json")) data = await r.json().catch(() => null);
+  else data = await r.text();
+  if (!o.quiet || !r.ok) log(method, path, r.status, o.blob && r.ok ? `(${data.size} байт ${ct})` : (data ?? ""));
+  if (!r.ok) {
+    const e = new Error(typeof data === "object" && data ? (data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : JSON.stringify(data)) : String(data));
+    e.status = r.status; e.quiet = !!o.quiet; throw e;
+  }
+  return data;
+}
+async function refresh() {
+  try {
+    const r = await fetch("/api/v1/auth/refresh", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({refresh_token: auth.refresh})});
+    if (!r.ok) { clearAuth(); who(); return false; }
+    setTokens(await r.json()); return true;
+  } catch (e) { return false; }
+}
+/* обёртка обработчика: блокирует кнопку на время запроса и показывает понятную ошибку */
+const safe = fn => async (ev, ...rest) => {
+  const btn = ev && ev.currentTarget && ev.currentTarget.tagName === "BUTTON" ? ev.currentTarget : null;
+  if (btn) btn.disabled = true;
+  try { await fn(ev, ...rest); }
+  catch (e) { if (e && e.message !== "no device" && !e.quiet) { const [m, d] = friendly(e); toast(m, "err", d); } }
+  finally { if (btn) btn.disabled = false; }
+};
+const quietly = p => p.catch(() => {});
+const needDev = () => { if (!dev) { toast("Сначала создайте колонку", "err", "Раздел 2 — «Создать колонку»"); throw new Error("no device"); } return dev; };
+const D = () => `/api/v1/devices/${encodeURIComponent(needDev())}`;
+const curDev = () => devices.find(d => d.public_id === dev);
+
+/* ---------------- шаги, блокировки ---------------- */
+function lock(id, locked) { $(id).classList.toggle("locked", locked); }
+function refreshUi() {
+  const loggedIn = !!auth.access, hasDev = loggedIn && !!curDev(), online = !!curDev()?.online;
+  lock("secDev", !loggedIn); lock("secMus", !loggedIn);
+  ["secSet", "secSch", "secHist"].forEach(i => lock(i, !hasDev));
+  if (!loggedIn) $("secSet").dataset.lock = $("secSch").dataset.lock = $("secHist").dataset.lock = "Сначала войдите в аккаунт";
+  else $("secSet").dataset.lock = $("secSch").dataset.lock = $("secHist").dataset.lock = "Сначала создайте колонку";
+  const steps = [
+    {t: "Вход", s: loggedIn ? $("who").textContent : "войдите или зарегистрируйтесь", done: loggedIn},
+    {t: "Колонка создана", s: hasDev ? (curDev()?.name || "") : "раздел 2", done: hasDev},
+    {t: "Колонка онлайн", s: online ? "подключена к серверу" : "нужно сопряжение платы", done: online},
+  ];
+  const now = steps.findIndex(s => !s.done);
+  $("steps").innerHTML = steps.map((s, i) => `<div class="step ${s.done ? "done" : i === now ? "now" : ""}"><i>${s.done ? "✓" : i + 1}</i><div><b>${esc(s.t)}</b><span>${esc(s.s)}</span></div></div>`).join("");
+  $("next").innerHTML = !loggedIn ? "👉 <b>Дальше:</b> зарегистрируйтесь или войдите (раздел 1)."
+    : !hasDev ? "👉 <b>Дальше:</b> нажмите «Создать колонку» в разделе 2 и сохраните показанный токен."
+    : !online ? "👉 <b>Дальше:</b> выполните команду сопряжения из раздела 2 (плата должна показывать имя и код на экране). Таймеры, настройки и история уже доступны — они применятся, когда колонка подключится."
+    : "✅ Колонка в сети. Можно менять настройки, ставить таймеры и включать музыку. Скажите «Нильс…» и проверьте голосом.";
+}
+
+/* ---------------- аккаунт ---------------- */
+async function who() {
+  if (!auth.access) { $("who").textContent = "не выполнен вход"; refreshUi(); return; }
+  try { const me = await api("GET", "/api/v1/me", {quiet: true}); $("who").textContent = `${me.email} (${me.role})`; }
+  catch (e) { $("who").textContent = "не выполнен вход"; }
+  refreshUi();
+}
+const creds = () => ({email: $("email").value.trim(), password: $("password").value});
+$("btnRegister").onclick = safe(async () => {
+  if (!$("consent").checked) { toast("Отметьте согласие на обработку данных", "err", "Без него регистрация невозможна"); return; }
+  setTokens(await api("POST", "/api/v1/auth/register", {json: {...creds(), display_name: $("dname").value, consent: true, language: $("rlang").value}}));
+  ok("Аккаунт создан, вы вошли"); await start();
+});
+$("btnLogin").onclick = safe(async () => {
+  if (!$("email").value || !$("password").value) { toast("Введите email и пароль", "err"); return; }
+  setTokens(await api("POST", "/api/v1/auth/login", {json: creds()})); ok("Вход выполнен"); await start();
+});
+$("btnLogout").onclick = safe(async () => {
+  try { if (auth.refresh) await api("POST", "/api/v1/auth/logout", {json: {refresh_token: auth.refresh}, quiet: true}); } catch (e) {}
+  clearAuth(); devices = []; dev = ""; $("tokenBox").classList.add("hidden"); renderDevices(); await who(); ok("Вы вышли");
+});
+$("btnMe").onclick = safe(async () => { await api("GET", "/api/v1/me"); ok("Профиль — в журнале внизу"); });
+
+/* ---------------- колонки ---------------- */
+function ago(iso) {
+  if (!iso) return "—";
+  const t = new Date(iso + (/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? "" : "Z")), s = Math.round((Date.now() - t) / 1000);
+  if (s < 0 || isNaN(s)) return t.toLocaleString();
+  if (s < 60) return s + " с назад"; if (s < 3600) return Math.round(s / 60) + " мин назад"; if (s < 86400) return Math.round(s / 3600) + " ч назад";
+  return t.toLocaleString();
+}
+function renderDevices() {
+  const sel = $("devSel");
+  const opts = devices.length ? devices.map(d => `<option value="${esc(d.public_id)}">${esc(d.name)} · ${esc(d.public_id.slice(0, 6))}</option>`).join("") : `<option value="">— нет —</option>`;
+  if (sel.dataset.opts !== opts) { sel.innerHTML = opts; sel.dataset.opts = opts; }   // не пересобирать открытый список
+  if (!devices.find(d => d.public_id === dev)) dev = devices[0]?.public_id || "";
+  sel.value = dev;
+  try { localStorage.setItem(SKEY + "_dev", dev); } catch (e) {}
+  $("devTable").tBodies[0].innerHTML = devices.map(d => `<tr><td>${esc(d.name)}</td><td><code>${esc(d.public_id)}</code></td>
+    <td><span class="pill ${d.online ? "on" : "off"}">${d.online ? "● онлайн" : "○ офлайн"}</span></td>
+    <td>${esc(d.firmware_version || "—")}</td><td class="mut">${esc(ago(d.last_seen))}</td>
+    <td><button class="bad" data-deldev="${esc(d.public_id)}" data-tip="Удалить колонку и все её данные (таймеры, историю)">Удалить</button></td></tr>`).join("") || `<tr><td colspan="6" class="empty">Колонок пока нет — нажмите «Создать колонку»</td></tr>`;
+  buildPair(); refreshUi();
+}
+async function loadDevices(quiet) { devices = await api("GET", "/api/v1/devices", {quiet}); renderDevices(); }
+$("btnDevices").onclick = safe(() => loadDevices(false));
+$("devSel").onchange = safe(async e => { dev = e.target.value; renderDevices(); await loadAll(); });
+$("btnCreate").onclick = safe(async () => {
+  const d = await api("POST", "/api/v1/devices", {json: {name: $("newName").value || "Noctis", timezone: $("newTz").value || "Europe/Moscow"}});
+  const b = $("tokenBox");
+  b.classList.remove("hidden");
+  b.innerHTML = `<b>Колонка создана. Токен показывается ОДИН РАЗ — сохраните его.</b>\npublic_id:    <code></code>\ndevice_token: <code></code>\n<button class="sec" id="btnCopyTok">Копировать токен</button>`;
+  const codes = b.querySelectorAll("code"); codes[0].textContent = d.public_id; codes[1].textContent = d.device_token;
+  $("btnCopyTok").onclick = () => navigator.clipboard?.writeText(d.device_token).then(() => ok("Токен скопирован"));
+  $("pToken").value = d.device_token;
+  dev = d.public_id; await loadDevices(true); ok("Колонка создана", "Дальше — сопряжение платы");
+  $("secDev").scrollIntoView(); await loadAll();
+});
+$("devTable").onclick = safe(async e => {
+  const id = e.target.dataset.deldev;
+  if (id && confirm("Удалить колонку " + id + "? Её таймеры и история тоже удалятся.")) {
+    await api("DELETE", "/api/v1/devices/" + encodeURIComponent(id)); ok("Колонка удалена"); await loadDevices(true); await loadAll();
+  }
+});
+function buildPair() {
+  const host = $("pServer").value.trim() || "<IP-ПК:8000>";
+  const q = s => '"' + String(s).replace(/"/g, '\\"') + '"';
+  $("pairCmd").textContent = `.venv\\Scripts\\python.exe tools\\pair_device.py --name ${$("pName").value || "NOCTIS_XXXXXX"} --pop ${$("pPop").value || "<код>"} ` +
+    `--server ${host} --device-id ${dev || "<public_id>"} --token ${$("pToken").value || "<device_token>"} --ssid ${q($("pSsid").value || "<wifi>")} --password ${q($("pWifi").value)}`;
+}
+["pName", "pPop", "pServer", "pSsid", "pWifi", "pToken"].forEach(i => $(i).oninput = buildPair);
+$("pServer").value = /^(localhost|127\.)/.test(location.hostname) ? "" : location.host;
+$("btnCopyPair").onclick = () => navigator.clipboard?.writeText($("pairCmd").textContent).then(() => ok("Команда скопирована", "Вставьте её в PowerShell в папке server"));
+
+/* ---------------- настройки ---------------- */
+async function loadCatalog() {
+  if (catalog) return;
+  catalog = await api("GET", "/api/v1/personalization/catalog?language=ru", {quiet: true});
+  $("sLang").innerHTML = catalog.languages.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("");
+  $("sChar").innerHTML = catalog.characters.map(c => `<option value="${esc(c.id)}" title="${esc(c.description)}">${esc(c.name)}</option>`).join("");
+  $("sWake").innerHTML = catalog.wake_words.map(w => `<option value="${esc(w.id)}">${esc(w.label)}${w.model_ready ? "" : " (модель не загружена)"}</option>`).join("");
+}
+async function loadSettings(quiet = true) {
+  needDev(); await loadCatalog();
+  const s = await api("GET", D() + "/settings", {quiet});
+  $("sLang").value = s.language; $("sVoice").value = s.voice_gender; $("sChar").value = s.character_id;
+  $("sWake").value = s.wake_word; $("sVol").value = s.volume; $("sTz").value = s.timezone; $("volVal").textContent = s.volume;
+  $("setInfo").textContent = "ревизия настроек: " + s.revision;
+}
+$("sVol").oninput = () => $("volVal").textContent = $("sVol").value;
+$("btnLoadSet").onclick = safe(async () => { await loadSettings(false); ok("Настройки загружены"); });
+$("btnSaveSet").onclick = safe(async () => {
+  const s = await api("PATCH", D() + "/settings", {json: {language: $("sLang").value, voice_gender: $("sVoice").value, character_id: $("sChar").value,
+    wake_word: $("sWake").value, volume: +$("sVol").value, timezone: $("sTz").value}});
+  const on = curDev()?.online;
+  $("setInfo").textContent = "сохранено, ревизия " + s.revision;
+  ok("Настройки сохранены", on ? "Отправлены на колонку" : "Колонка офлайн — получит их при подключении");
+});
+$("btnPreview").onclick = safe(async () => {
+  toast("Синтезирую речь…", "ok", "Первый раз может занять несколько секунд");
+  const blob = await api("POST", "/api/v1/personalization/voice-preview", {json: {language: $("sLang").value, voice_gender: $("sVoice").value, character_id: $("sChar").value}, blob: true});
+  await new Audio(URL.createObjectURL(blob)).play();
+});
+$("btnTime").onclick = safe(async () => {
+  const t = await api("GET", D() + "/time");
+  const s = `${t.local_time.replace("T", " ")} (${t.timezone}, UTC${t.utc_offset >= 0 ? "+" : ""}${t.utc_offset / 3600})`;
+  $("setInfo").textContent = s; ok("Время колонки", s);
+});
+$("btnReboot").onclick = safe(async () => { if (confirm("Перезагрузить колонку?")) { await api("POST", D() + "/reboot"); ok("Команда перезагрузки отправлена"); } });
+
+/* ---------------- таймеры и будильники ---------------- */
+$("aDays").innerHTML = DAYS.map((d, i) => `<label class="inline"><input type="checkbox" value="${i}"> ${d}</label>`).join("");
+const fmtSec = s => { s = Math.max(0, Math.round(s)); const h = (s / 3600) | 0, m = ((s % 3600) / 60) | 0, x = s % 60; return (h ? h + ":" : "") + String(m).padStart(h ? 2 : 1, "0") + ":" + String(x).padStart(2, "0"); };
+const STATE = {running: "идёт", paused: "пауза", finished: "завершён", cancelled: "отменён"};
+async function loadTimers(quiet) {
+  const t = await api("GET", D() + "/timers", {quiet});
+  $("timerTable").tBodies[0].innerHTML = t.map(x => `<tr><td>#${x.id}</td><td>${esc(x.label || "таймер")}</td><td><b>${fmtSec(x.remaining_sec)}</b> <span class="mut">из ${fmtSec(x.duration_sec)}</span></td>
+    <td><span class="pill ${x.state === "running" ? "on" : "off"}">${esc(STATE[x.state] || x.state)}</span></td>
+    <td>${x.state === "paused" ? `<button class="sec" data-t="resume" data-id="${x.id}" data-tip="Продолжить отсчёт">▶</button>` : `<button class="sec" data-t="pause" data-id="${x.id}" data-tip="Пауза">⏸</button>`}
+    <button class="bad" data-t="del" data-id="${x.id}" data-tip="Отменить таймер">✕</button></td></tr>`).join("") || `<tr><td class="empty">Активных таймеров нет</td></tr>`;
+}
+async function loadAlarms(quiet) {
+  const a = await api("GET", D() + "/alarms", {quiet});
+  $("alarmTable").tBodies[0].innerHTML = a.map(x => `<tr><td>#${x.id}</td><td><b>${String(x.hour).padStart(2, "0")}:${String(x.minute).padStart(2, "0")}</b></td>
+    <td>${x.date ? esc(x.date) : x.weekdays.length ? x.weekdays.map(i => DAYS[i]).join(" ") : "один раз"}</td><td>${esc(x.label)}</td><td class="mut">${esc(x.melody)}</td>
+    <td><button class="sec" data-a="toggle" data-id="${x.id}" data-en="${x.enabled}" data-tip="Включить или выключить будильник">${x.enabled ? "включён" : "выключен"}</button>
+    <button class="bad" data-a="del" data-id="${x.id}" data-tip="Удалить будильник">✕</button></td></tr>`).join("") || `<tr><td class="empty">Будильников нет</td></tr>`;
+}
+$("btnTimer").onclick = safe(async () => { await api("POST", D() + "/timers", {json: {seconds: +$("tSec").value, label: $("tLabel").value}}); ok("Таймер запущен"); await loadTimers(true); });
+$("timerTable").onclick = safe(async e => {
+  const t = e.target.dataset.t, id = e.target.dataset.id; if (!t) return;
+  if (t === "del") await api("DELETE", `${D()}/timers/${id}`); else await api("POST", `${D()}/timers/${id}/${t}`);
+  await loadTimers(true);
+});
+$("btnAlarm").onclick = safe(async () => {
+  const body = {hour: +$("aH").value, minute: +$("aM").value, melody: $("aMel").value, label: $("aLabel").value,
+    weekdays: [...$("aDays").querySelectorAll("input:checked")].map(i => +i.value)};
+  if ($("aDate").value) body.date = $("aDate").value;
+  await api("POST", D() + "/alarms", {json: body}); ok("Будильник добавлен"); await loadAlarms(true);
+});
+$("alarmTable").onclick = safe(async e => {
+  const a = e.target.dataset.a, id = e.target.dataset.id; if (!a) return;
+  if (a === "del") await api("DELETE", `${D()}/alarms/${id}`);
+  else await api("PATCH", `${D()}/alarms/${id}`, {json: {enabled: e.target.dataset.en !== "true"}});
+  await loadAlarms(true);
+});
+
+/* ---------------- музыка ---------------- */
+const trackRow = (t, extra = "") => `<tr><td>#${t.id}</td><td>${esc(t.title)}</td><td class="mut">${esc(t.artist)}</td><td class="mut">${esc(t.genre)}</td>
+  <td class="mut">${t.duration_sec ? fmtSec(t.duration_sec) : ""}</td><td><button class="sec" data-play="${t.id}" data-tip="Включить на колонке">▶</button>${extra}</td></tr>`;
+async function loadTracks(quiet) {
+  const t = await api("GET", "/api/v1/media/tracks?source=local", {quiet});
+  $("trackTable").tBodies[0].innerHTML = t.map(x => trackRow(x, ` <button class="bad" data-deltrack="${x.id}" data-tip="Удалить файл из библиотеки">✕</button>`)).join("") || `<tr><td class="empty">Библиотека пуста: загрузите файлы кнопкой выше или положите их в папку data/music/&lt;ваш id&gt;/</td></tr>`;
+  const r = await api("GET", "/api/v1/media/radio", {quiet});
+  $("radioTable").tBodies[0].innerHTML = r.map(x => `<tr><td>#${x.id}</td><td>${esc(x.title)}</td><td><button class="sec" data-play="${x.id}" data-tip="Включить станцию">▶</button> <button class="bad" data-delradio="${x.id}" data-tip="Удалить станцию">✕</button></td></tr>`).join("") || `<tr><td class="empty">Станций нет — добавьте ссылку на MP3-поток</td></tr>`;
+}
+async function playTrack(id) { await api("POST", D() + "/player/play", {json: {track_id: +id}}); ok("Запускаю воспроизведение"); await loadPlayer(true); }
+document.addEventListener("click", safe(async e => {
+  const t = e.target;
+  if (t.dataset.play) await playTrack(t.dataset.play);
+  else if (t.dataset.deltrack) { await api("DELETE", "/api/v1/media/tracks/" + t.dataset.deltrack); await loadTracks(true); }
+  else if (t.dataset.delradio) { await api("DELETE", "/api/v1/media/radio/" + t.dataset.delradio); await loadTracks(true); }
+  else if (t.dataset.pl) { await api("POST", `${D()}/player/${t.dataset.pl}`); await loadPlayer(true); }
+}));
+$("btnTracks").onclick = safe(() => loadTracks(false));
+$("btnScan").onclick = safe(async () => { const r = await api("POST", "/api/v1/media/library/scan"); ok("Папка просканирована", JSON.stringify(r)); await loadTracks(true); });
+$("btnUpload").onclick = safe(async () => {
+  const files = [...$("upFile").files]; if (!files.length) { toast("Сначала выберите файлы", "err"); return; }
+  for (const f of files) await api("PUT", "/api/v1/media/library/" + encodeURIComponent(f.name), {body: f});
+  $("upFile").value = ""; ok("Загружено файлов: " + files.length); await loadTracks(true);
+});
+$("btnRadio").onclick = safe(async () => {
+  await api("POST", "/api/v1/media/radio", {json: {name: $("rName").value, url: $("rUrl").value}});
+  $("rName").value = $("rUrl").value = ""; ok("Станция добавлена"); await loadTracks(true);
+});
+$("btnJam").onclick = safe(async () => {
+  const t = await api("GET", "/api/v1/media/jamendo/search?q=" + encodeURIComponent($("jQ").value));
+  $("jamTable").tBodies[0].innerHTML = t.map(x => trackRow(x)).join("") || `<tr><td class="empty">Ничего не найдено</td></tr>`;
+});
+$("btnPlayQ").onclick = safe(async () => { await api("POST", D() + "/player/play", {json: {query: $("mQuery").value, source: $("mSrc").value}}); ok("Запускаю воспроизведение"); await loadPlayer(true); });
+const PSTATE = {playing: "играет", paused: "пауза", stopped: "остановлено"};
+async function loadPlayer(quiet) {
+  const p = await api("GET", D() + "/player", {quiet}), el = $("playerInfo");
+  el.textContent = (PSTATE[p.state] || p.state) + (p.track ? ` · ${p.track.title || ""}` : "") + (p.total ? ` (${p.index + 1}/${p.total})` : "");
+  el.className = "pill " + (p.state === "playing" ? "on" : "off");
+}
+
+/* ---------------- история и OTA ---------------- */
+$("btnHist").onclick = safe(async () => {
+  const h = await api("GET", D() + "/history?limit=30");
+  const tb = $("histTable").tBodies[0]; tb.innerHTML = "";
+  if (!h.length) { tb.innerHTML = `<tr><td class="empty">История пуста</td></tr>`; return; }
+  for (const x of h) {
+    const tr = tb.insertRow();
+    tr.insertCell().textContent = new Date(x.created_at + (/[zZ]|[+-]\d\d:?\d\d$/.test(x.created_at) ? "" : "Z")).toLocaleString();
+    tr.cells[0].className = "mut"; tr.insertCell().textContent = "🗣 " + x.user_text; tr.insertCell().textContent = "🤖 " + x.assistant_text;
+  }
+});
+$("btnHistDel").onclick = safe(async () => { if (confirm("Удалить историю диалогов этой колонки?")) { await api("DELETE", D() + "/history"); $("histTable").tBodies[0].innerHTML = ""; ok("История очищена"); } });
+$("btnOtaUp").onclick = safe(async () => {
+  const f = $("otaFile").files[0]; if (!f || !$("otaVer").value) { toast("Укажите версию и выберите файл .bin", "err"); return; }
+  await api("PUT", "/api/v1/ota/" + encodeURIComponent($("otaVer").value), {body: f}); ok("Образ загружен на сервер");
+});
+$("btnOtaStart").onclick = safe(async () => { await api("POST", D() + "/ota", {json: {version: $("otaVer").value}}); ok("Команда обновления отправлена", "Ход — кнопка «Статус»"); });
+$("btnOtaState").onclick = safe(async () => { const s = await api("GET", D() + "/ota"); ok("Статус обновления", JSON.stringify(s)); });
+
+/* ---------------- журнал ---------------- */
+$("btnClearLog").onclick = () => { const l = $("log"); while (l.children.length > 1) l.removeChild(l.lastChild); };
+$("btnMinLog").onclick = () => { const m = $("log").classList.toggle("min"); $("btnMinLog").textContent = m ? "развернуть" : "свернуть"; document.body.style.paddingBottom = m ? "50px" : "250px"; };
+
+/* ---------------- руководство ---------------- */
+const guide = $("guide");
+const gHeads = [...document.querySelectorAll("#gbody h3")];
+$("toc").innerHTML = gHeads.map(h => `<a data-g="${h.id}">${esc(h.textContent)}</a>`).join("");
+function openGuide(id) { guide.classList.add("open"); document.body.style.overflow = "hidden"; if (id) gotoGuide(id); }
+function closeGuide() { guide.classList.remove("open"); document.body.style.overflow = ""; }
+function gotoGuide(id) { const h = $("g-" + id) || $(id); if (h) $("gbody").scrollTo({top: h.offsetTop - 6}); }
+$("btnGuide").onclick = () => openGuide();
+$("btnGuideClose").onclick = closeGuide;
+guide.onclick = e => { if (e.target === guide) closeGuide(); };
+$("toc").onclick = e => { if (e.target.dataset.g) gotoGuide(e.target.dataset.g); };
+document.addEventListener("click", e => { const g = e.target.dataset?.guide; if (g) { e.preventDefault(); openGuide(g); } });
+$("gbody").addEventListener("scroll", () => {
+  let cur = gHeads[0]; for (const h of gHeads) if (h.offsetTop - 20 <= $("gbody").scrollTop) cur = h;
+  document.querySelectorAll("#toc a").forEach(a => a.classList.toggle("cur", a.dataset.g === cur.id));
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "F1") { e.preventDefault(); guide.classList.contains("open") ? closeGuide() : openGuide(); }
+  else if (e.key === "Escape" && guide.classList.contains("open")) closeGuide();
+});
+
+/* ---------------- запуск и опрос ---------------- */
+async function loadAll() {
+  if (!auth.access) return;
+  quietly(loadTracks(true));
+  if (!dev) return;
+  await quietly(loadSettings());
+  await Promise.all([loadTimers(true), loadAlarms(true), loadPlayer(true)].map(quietly));
+}
+async function start() { await who(); if (!auth.access) return; await quietly(loadCatalog()); await quietly(loadDevices(true)); await loadAll(); }
+setInterval(() => {
+  if (document.hidden || !auth.access) return;
+  quietly(loadDevices(true));
+  if (dev) { quietly(loadTimers(true)); quietly(loadPlayer(true)); }
+}, 4000);
+buildPair(); refreshUi();
+start();
+</script>
+</body>
+</html>
