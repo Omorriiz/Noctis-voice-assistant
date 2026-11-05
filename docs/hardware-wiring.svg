@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="930" viewBox="0 0 1120 930" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1120" height="930" fill="#ffffff"/>
+<text x="30" y="38" font-size="22" font-weight="700" fill="#14213d">Noctis — схема подключения компонентов</text>
+<text x="30" y="58" font-size="12" fill="#555">Принципиальная схема соединений (логическая): положение выводов на реальной плате не соблюдается — ориентируйтесь на подписи.</text>
+<rect x="440" y="190" width="240" height="300" rx="8" fill="#eef3fb" stroke="#33415c" stroke-width="1.6"/>
+<text x="560.0" y="242" font-size="15" font-weight="700" text-anchor="middle" fill="#14213d">ESP32-S3 DevKitC-1</text>
+<text x="560.0" y="259" font-size="11" text-anchor="middle" fill="#555">N16R8 (16 МБ flash, 8 МБ PSRAM)</text>
+<text x="560.0" y="340" font-size="12" text-anchor="middle" fill="#555">питание и прошивка —</text>
+<text x="560.0" y="356" font-size="12" text-anchor="middle" fill="#555">USB-порт «UART» (COM)</text>
+<text x="560.0" y="390" font-size="12" text-anchor="middle" fill="#555">кнопка BOOT (GPIO0)</text>
+<text x="560.0" y="406" font-size="12" text-anchor="middle" fill="#555">есть на плате</text>
+<text x="448" y="234" font-size="12" text-anchor="start" fill="#14213d">3V3</text>
+<text x="448" y="264" font-size="12" text-anchor="start" fill="#14213d">GND</text>
+<text x="448" y="294" font-size="12" text-anchor="start" fill="#14213d">GPIO16</text>
+<text x="448" y="324" font-size="12" text-anchor="start" fill="#14213d">GPIO17</text>
+<text x="448" y="354" font-size="12" text-anchor="start" fill="#14213d">GPIO18</text>
+<text x="672" y="234" font-size="12" text-anchor="end" fill="#14213d">3V3</text>
+<text x="672" y="264" font-size="12" text-anchor="end" fill="#14213d">GND</text>
+<text x="672" y="294" font-size="12" text-anchor="end" fill="#14213d">GPIO5</text>
+<text x="672" y="324" font-size="12" text-anchor="end" fill="#14213d">GPIO6</text>
+<text x="672" y="354" font-size="12" text-anchor="end" fill="#14213d">GPIO7</text>
+<rect x="40" y="190" width="180" height="250" rx="8" fill="#f6f8fc" stroke="#33415c" stroke-width="1.6"/>
+<text x="130.0" y="214" font-size="15" font-weight="700" text-anchor="middle" fill="#14213d">INMP441</text>
+<text x="130.0" y="231" font-size="11" text-anchor="middle" fill="#555">I²S-микрофон</text>
+<text x="212" y="234" font-size="12" text-anchor="end" fill="#14213d">VDD</text>
+<text x="212" y="264" font-size="12" text-anchor="end" fill="#14213d">GND</text>
+<text x="212" y="294" font-size="12" text-anchor="end" fill="#14213d">SD</text>
+<text x="212" y="324" font-size="12" text-anchor="end" fill="#14213d">SCK</text>
+<text x="212" y="354" font-size="12" text-anchor="end" fill="#14213d">WS</text>
+<text x="212" y="384" font-size="12" text-anchor="end" fill="#14213d">L/R</text>
+<polyline points="220,230 440,230" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="230" r="3.4" fill="#c0392b"/>
+<circle cx="440" cy="230" r="3.4" fill="#c0392b"/>
+<text x="330" y="222" font-size="11" text-anchor="middle" fill="#c0392b" font-weight="700">3,3 В</text>
+<polyline points="220,260 440,260" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="260" r="3.4" fill="#222222"/>
+<circle cx="440" cy="260" r="3.4" fill="#222222"/>
+<text x="330" y="252" font-size="11" text-anchor="middle" fill="#222222" font-weight="700">GND</text>
+<polyline points="220,290 440,290" fill="none" stroke="#1f6f4a" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="290" r="3.4" fill="#1f6f4a"/>
+<circle cx="440" cy="290" r="3.4" fill="#1f6f4a"/>
+<text x="330" y="282" font-size="11" text-anchor="middle" fill="#1f6f4a" font-weight="700">данные</text>
+<polyline points="220,320 440,320" fill="none" stroke="#2a6fb0" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="320" r="3.4" fill="#2a6fb0"/>
+<circle cx="440" cy="320" r="3.4" fill="#2a6fb0"/>
+<text x="330" y="312" font-size="11" text-anchor="middle" fill="#2a6fb0" font-weight="700">тактовый BCK</text>
+<polyline points="220,350 440,350" fill="none" stroke="#2a6fb0" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="350" r="3.4" fill="#2a6fb0"/>
+<circle cx="440" cy="350" r="3.4" fill="#2a6fb0"/>
+<text x="330" y="342" font-size="11" text-anchor="middle" fill="#2a6fb0" font-weight="700">выбор канала WS</text>
+<polyline points="220,380 270,380 270,260" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="220" cy="380" r="3.4" fill="#222222"/>
+<circle cx="270" cy="260" r="3.4" fill="#222222"/>
+<circle cx="270" cy="260" r="3.6" fill="#222"/>
+<text x="130.0" y="428" font-size="11" text-anchor="middle" fill="#555">L/R на GND = левый канал</text>
+<rect x="900" y="190" width="190" height="290" rx="8" fill="#f6f8fc" stroke="#33415c" stroke-width="1.6"/>
+<text x="995.0" y="214" font-size="15" font-weight="700" text-anchor="middle" fill="#14213d">MAX98357A</text>
+<text x="995.0" y="231" font-size="11" text-anchor="middle" fill="#555">I²S-усилитель класса D</text>
+<text x="908" y="234" font-size="12" fill="#14213d">VIN</text>
+<text x="908" y="264" font-size="12" fill="#14213d">GND</text>
+<text x="908" y="294" font-size="12" fill="#14213d">BCLK</text>
+<text x="908" y="324" font-size="12" fill="#14213d">LRC</text>
+<text x="908" y="354" font-size="12" fill="#14213d">DIN</text>
+<text x="908" y="384" font-size="12" fill="#14213d">GAIN</text>
+<text x="908" y="414" font-size="12" fill="#14213d">SD</text>
+<polyline points="680,230 900,230" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="680" cy="230" r="3.4" fill="#c0392b"/>
+<circle cx="900" cy="230" r="3.4" fill="#c0392b"/>
+<text x="790" y="222" font-size="11" text-anchor="middle" fill="#c0392b" font-weight="700">3,3 В</text>
+<polyline points="680,260 900,260" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="680" cy="260" r="3.4" fill="#222222"/>
+<circle cx="900" cy="260" r="3.4" fill="#222222"/>
+<text x="790" y="252" font-size="11" text-anchor="middle" fill="#222222" font-weight="700">GND</text>
+<polyline points="680,290 900,290" fill="none" stroke="#2a6fb0" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="680" cy="290" r="3.4" fill="#2a6fb0"/>
+<circle cx="900" cy="290" r="3.4" fill="#2a6fb0"/>
+<text x="790" y="282" font-size="11" text-anchor="middle" fill="#2a6fb0" font-weight="700">BCLK</text>
+<polyline points="680,320 900,320" fill="none" stroke="#2a6fb0" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="680" cy="320" r="3.4" fill="#2a6fb0"/>
+<circle cx="900" cy="320" r="3.4" fill="#2a6fb0"/>
+<text x="790" y="312" font-size="11" text-anchor="middle" fill="#2a6fb0" font-weight="700">LRC (WS)</text>
+<polyline points="680,350 900,350" fill="none" stroke="#1f6f4a" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="680" cy="350" r="3.4" fill="#1f6f4a"/>
+<circle cx="900" cy="350" r="3.4" fill="#1f6f4a"/>
+<text x="790" y="342" font-size="11" text-anchor="middle" fill="#1f6f4a" font-weight="700">данные DIN</text>
+<text x="1080" y="384" font-size="10" text-anchor="end" fill="#888">не подключён</text>
+<text x="1080" y="414" font-size="10" text-anchor="end" fill="#888">не подключён</text>
+<text x="995.0" y="466" font-size="11" text-anchor="middle" fill="#555">выход на динамик</text>
+<polyline points="960,480 960,560 960,560 960,590" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="960" cy="480" r="3.4" fill="#c0392b"/>
+<circle cx="960" cy="590" r="3.4" fill="#c0392b"/>
+<text x="938" y="540" font-size="11" text-anchor="middle" fill="#c0392b" font-weight="700">OUT +</text>
+<polyline points="1030,480 1030,545 1050,545 1050,590" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="1030" cy="480" r="3.4" fill="#222222"/>
+<circle cx="1050" cy="590" r="3.4" fill="#222222"/>
+<text x="1056" y="540" font-size="11" text-anchor="middle" fill="#222222" font-weight="700">OUT −</text>
+<rect x="920" y="590" width="170" height="70" rx="8" fill="#f6f8fc" stroke="#33415c" stroke-width="1.6"/>
+<text x="1005.0" y="614" font-size="15" font-weight="700" text-anchor="middle" fill="#14213d">Динамик</text>
+<text x="1005.0" y="631" font-size="11" text-anchor="middle" fill="#555">3–4 Ом, 3 Вт</text>
+<rect x="440" y="640" width="240" height="150" rx="8" fill="#f6f8fc" stroke="#33415c" stroke-width="1.6"/>
+<text x="560.0" y="664" font-size="15" font-weight="700" text-anchor="middle" fill="#14213d">SSD1306 128×64</text>
+<text x="560.0" y="681" font-size="11" text-anchor="middle" fill="#555">OLED, I²C, адрес 0x3C</text>
+<text x="470" y="698" font-size="12" text-anchor="middle" fill="#14213d">VCC</text>
+<text x="520" y="698" font-size="12" text-anchor="middle" fill="#14213d">GND</text>
+<text x="570" y="698" font-size="12" text-anchor="middle" fill="#14213d">SDA</text>
+<text x="620" y="698" font-size="12" text-anchor="middle" fill="#14213d">SCL</text>
+<text x="470" y="482" font-size="12" text-anchor="middle" fill="#14213d">3V3</text>
+<text x="520" y="482" font-size="12" text-anchor="middle" fill="#14213d">GND</text>
+<text x="570" y="482" font-size="12" text-anchor="middle" fill="#14213d">GPIO8</text>
+<text x="620" y="482" font-size="12" text-anchor="middle" fill="#14213d">GPIO9</text>
+<polyline points="470,490 470,640" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="470" cy="490" r="3.4" fill="#c0392b"/>
+<circle cx="470" cy="640" r="3.4" fill="#c0392b"/>
+<text x="452" y="560" font-size="11" text-anchor="middle" fill="#c0392b" font-weight="700">3,3 В</text>
+<polyline points="520,490 520,640" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="520" cy="490" r="3.4" fill="#222222"/>
+<circle cx="520" cy="640" r="3.4" fill="#222222"/>
+<text x="502" y="560" font-size="11" text-anchor="middle" fill="#222222" font-weight="700">GND</text>
+<polyline points="570,490 570,640" fill="none" stroke="#8a4fb3" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="570" cy="490" r="3.4" fill="#8a4fb3"/>
+<circle cx="570" cy="640" r="3.4" fill="#8a4fb3"/>
+<text x="588" y="560" font-size="11" text-anchor="middle" fill="#8a4fb3" font-weight="700">SDA</text>
+<polyline points="620,490 620,640" fill="none" stroke="#8a4fb3" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="620" cy="490" r="3.4" fill="#8a4fb3"/>
+<circle cx="620" cy="640" r="3.4" fill="#8a4fb3"/>
+<text x="638" y="560" font-size="11" text-anchor="middle" fill="#8a4fb3" font-weight="700">SCL</text>
+<rect x="470" y="80" width="180" height="56" rx="8" fill="#f6f8fc" stroke="#33415c" stroke-width="1.6"/>
+<text x="560" y="104" font-size="14" font-weight="700" text-anchor="middle" fill="#14213d">Тактовая кнопка</text>
+<text x="560" y="122" font-size="11" text-anchor="middle" fill="#555">внешняя, по желанию</text>
+<text x="520" y="208" font-size="12" text-anchor="middle" fill="#14213d">GPIO11</text>
+<text x="600" y="208" font-size="12" text-anchor="middle" fill="#14213d">GND</text>
+<polyline points="520,136 520,190" fill="none" stroke="#1f6f4a" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="520" cy="136" r="3.4" fill="#1f6f4a"/>
+<circle cx="520" cy="190" r="3.4" fill="#1f6f4a"/>
+<text x="480" y="165" font-size="11" text-anchor="middle" fill="#1f6f4a" font-weight="700">контакт 1</text>
+<polyline points="600,136 600,190" fill="none" stroke="#222222" stroke-width="2.2" stroke-linejoin="round"/>
+<circle cx="600" cy="136" r="3.4" fill="#222222"/>
+<circle cx="600" cy="190" r="3.4" fill="#222222"/>
+<text x="640" y="165" font-size="11" text-anchor="middle" fill="#222222" font-weight="700">контакт 2</text>
+<text x="30" y="825" font-size="14" font-weight="700" fill="#14213d">Обозначения</text>
+<line x1="30" y1="847" x2="62" y2="847" stroke="#c0392b" stroke-width="3"/>
+<text x="72" y="851" font-size="12" fill="#14213d">питание</text>
+<line x1="30" y1="867" x2="62" y2="867" stroke="#222222" stroke-width="3"/>
+<text x="72" y="871" font-size="12" fill="#14213d">земля (GND)</text>
+<line x1="30" y1="887" x2="62" y2="887" stroke="#1f6f4a" stroke-width="3"/>
+<text x="72" y="891" font-size="12" fill="#14213d">данные / сигнал</text>
+<line x1="30" y1="907" x2="62" y2="907" stroke="#2a6fb0" stroke-width="3"/>
+<text x="72" y="911" font-size="12" fill="#14213d">тактовые сигналы I²S</text>
+<line x1="30" y1="927" x2="62" y2="927" stroke="#8a4fb3" stroke-width="3"/>
+<text x="72" y="931" font-size="12" fill="#14213d">шина I²C</text>
+<text x="250" y="825" font-size="14" font-weight="700" fill="#14213d">Примечания</text>
+<text x="250" y="847" font-size="12" fill="#14213d">• Кнопка: один контакт на GPIO11, другой на GND; резистор не нужен (включена внутренняя подтяжка). Провод до 20 см.</text>
+<text x="250" y="867" font-size="12" fill="#14213d">• Кнопка BOOT (GPIO0) уже есть на плате и делает то же: 3 с — режим настройки; 5 с при включении питания — сброс (только GPIO11).</text>
+<text x="250" y="887" font-size="12" fill="#14213d">• Занятые выводы: 5, 6, 7 (динамик), 8, 9 (экран), 11 (кнопка), 16, 17, 18 (микрофон).</text>
+<text x="250" y="907" font-size="12" fill="#14213d">• Общая земля (GND) у всех модулей — одна. Питание всей схемы — по USB.</text>
+</svg>
