@@ -68,7 +68,7 @@ def test_headers_auth_and_config_persisted_across_reboot(client, auth, paired):
     assert sp.settings.as_dict()["character_id"] == "wise"
     assert sp.boot_count == 3   # 1 — включение, 2 — перезапуск из-за смены слова на «computer» (этап 4), 3 — ручная
     # сервер увидел версию прошивки из device_info
-    assert client.get(f"/api/v1/devices/{pid}", headers=auth).json()["firmware_version"] == "0.4.0"
+    assert client.get(f"/api/v1/devices/{pid}", headers=auth).json()["firmware_version"] == "0.5.0"
 
 
 def test_wrong_token_is_rejected(client, paired):
@@ -134,54 +134,54 @@ def run_ota(client, auth, pid, sp, version):
 
 def test_ota_success_switches_slot_and_reports(client, auth, paired):
     pid, sp = paired
-    make_firmware(client, "0.5.0")
-    state = run_ota(client, auth, pid, sp, "0.5.0")
+    make_firmware(client, "0.6.0")
+    state = run_ota(client, auth, pid, sp, "0.6.0")
     assert state["state"] == "ok", (state, sp.ota_log)
-    assert sp.firmware == "0.5.0" and sp.active_slot == "ota_1"
+    assert sp.firmware == "0.6.0" and sp.active_slot == "ota_1"
 
 
 def test_ota_hash_mismatch_keeps_old_firmware(client, auth, paired):
     pid, sp = paired
-    make_firmware(client, "0.5.0")
+    make_firmware(client, "0.6.0")
     # сервер «испортил» образ после публикации: хэш в БД не совпадает с файлом
     from noctis_server.routers.ota import OTA_DIR
-    (OTA_DIR / "noctis-0.5.0.bin").write_bytes(b"corrupted-image")
-    state = run_ota(client, auth, pid, sp, "0.5.0")
+    (OTA_DIR / "noctis-0.6.0.bin").write_bytes(b"corrupted-image")
+    state = run_ota(client, auth, pid, sp, "0.6.0")
     assert state["state"] == "failed" and "sha256" in state["error"] or "size" in state["error"]
-    assert sp.firmware == "0.4.0" and sp.active_slot == "ota_0"
+    assert sp.firmware == "0.5.0" and sp.active_slot == "ota_0"
 
 
 def test_ota_refuses_downgrade_and_equal(client, auth, paired):
     pid, sp = paired
-    make_firmware(client, "0.4.0")
-    state = run_ota(client, auth, pid, sp, "0.4.0")
-    assert state["state"] == "failed" and state["error"] == "not newer" and sp.firmware == "0.4.0"
+    make_firmware(client, "0.5.0")
+    state = run_ota(client, auth, pid, sp, "0.5.0")
+    assert state["state"] == "failed" and state["error"] == "not newer" and sp.firmware == "0.5.0"
 
 
 def test_ota_requires_known_version_and_online_device(client, auth, paired):
     pid, sp = paired
     assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "9.9.9"}, headers=auth).status_code == 404
-    make_firmware(client, "0.5.0")
-    assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "0.5.0"}, headers=auth).status_code == 409
+    make_firmware(client, "0.6.0")
+    assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "0.6.0"}, headers=auth).status_code == 409
     assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "bad"}, headers=auth).status_code == 422
 
 
 def test_device_download_endpoint_needs_device_credentials(client, auth, paired):
     pid, sp = paired
-    make_firmware(client, "0.5.0")
-    assert client.get("/api/v1/device/ota/0.5.0").status_code == 401
-    assert client.get("/api/v1/device/ota/0.5.0", headers={"X-Device-Id": pid, "X-Device-Token": "x"}).status_code == 401
-    r = client.get("/api/v1/device/ota/0.5.0", headers=sp.headers())
+    make_firmware(client, "0.6.0")
+    assert client.get("/api/v1/device/ota/0.6.0").status_code == 401
+    assert client.get("/api/v1/device/ota/0.6.0", headers={"X-Device-Id": pid, "X-Device-Token": "x"}).status_code == 401
+    r = client.get("/api/v1/device/ota/0.6.0", headers=sp.headers())
     assert r.status_code == 200 and hashlib.sha256(r.content).hexdigest()
     # пользовательский токен не заменяет токен устройства
-    assert client.get("/api/v1/device/ota/0.5.0", headers=auth).status_code == 401
+    assert client.get("/api/v1/device/ota/0.6.0", headers=auth).status_code == 401
     assert client.get("/api/v1/device/config", headers=sp.headers()).json()["wake_word"] == "nils"
 
 
 def test_other_users_device_cannot_receive_ota_command(client, auth, paired):
     pid, sp = paired
-    make_firmware(client, "0.5.0")
+    make_firmware(client, "0.6.0")
     other = hdr(register(client, email="other@example.com"))
     with connect(client, sp) as ws:
         ws.receive_json(); ws.receive_json()
-        assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "0.5.0"}, headers=other).status_code == 404
+        assert client.post(f"/api/v1/devices/{pid}/ota", json={"version": "0.6.0"}, headers=other).status_code == 404

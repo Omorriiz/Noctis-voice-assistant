@@ -1,7 +1,8 @@
 """Точка входа: фабрика приложения FastAPI. Запуск: python -m noctis_server"""
 import logging
+import re
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, WebSocket
@@ -39,9 +40,33 @@ class SiteFiles(StaticFiles):
         return await super().get_response(path, scope)
 
 
+LOG_FILE_RE = re.compile(r"^server_(\d{8})\.log$")
+
+
+def prune_logs(log_dir: Path, keep_days: int, today: date | None = None) -> list[str]:
+    """Удаляет файлы server_ГГГГММДД.log старше keep_days дней (по дате в имени). Другие файлы не трогает."""
+    if keep_days <= 0 or not log_dir.is_dir():
+        return []
+    limit = (today or date.today()) - timedelta(days=keep_days)
+    removed = []
+    for path in log_dir.glob("server_*.log"):
+        m = LOG_FILE_RE.match(path.name)
+        if not m:
+            continue
+        try:
+            day = datetime.strptime(m.group(1), "%Y%m%d").date()
+            if day < limit:
+                path.unlink()
+                removed.append(path.name)
+        except (ValueError, OSError):
+            continue
+    return removed
+
+
 def setup_logging() -> None:
     log_dir = Path(settings.log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
+    prune_logs(log_dir, settings.log_keep_days)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",

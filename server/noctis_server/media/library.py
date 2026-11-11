@@ -128,6 +128,27 @@ def audio_uri(track: MediaTrack) -> str:
     return track.uri
 
 
+def drop_missing(db: Session, rows: list[MediaTrack]) -> list[MediaTrack]:
+    """Убирает из библиотеки записи собственных треков, файлов которых уже нет на диске (удалили или перенесли папку),
+    и возвращает оставшиеся. Иначе колонка пыталась бы играть несуществующий файл: «file not found»."""
+    kept, gone = [], 0
+    for t in rows:
+        if t.source == "local":
+            try:
+                exists = resolve(t.owner_id, t.uri).is_file()
+            except LibraryError:
+                exists = False
+            if not exists:
+                db.delete(t)
+                gone += 1
+                continue
+        kept.append(t)
+    if gone:
+        db.commit()
+        log.info("из библиотеки убрано записей без файла: %d", gone)
+    return kept
+
+
 # ------------------------------------------------------------------ поиск
 def _haystack(t: MediaTrack) -> str:
     return f"{t.title} {t.artist} {t.album} {t.genre}".casefold().replace("ё", "е")

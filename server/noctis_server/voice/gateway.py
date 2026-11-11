@@ -301,6 +301,14 @@ class Gateway:
         await reply.finish(answer)
         return answer, reply, timing
 
+    def _llm_note(self) -> str:
+        """Где ушло время LLM: первый токен и скорость генерации (если конвейер их измеряет)."""
+        st = getattr(self.assistant, "last_llm_stats", None) or {}
+        if not st:
+            return ""
+        return " [LLM: первый токен %.1f с, %d ток., %.1f ток/с, загрузка %.1f с]" % (
+            st.get("first_token") or 0, st.get("tokens", 0), st.get("tok_per_sec", 0), st.get("load", 0))
+
     async def process_audio(self, conn: DeviceConnection):
         t_start = time.time()
         try:
@@ -334,8 +342,8 @@ class Gateway:
                 self._remember(conn, user_text, answer, timing)
 
             first = f"{reply.first_audio_at - t_start:.1f} с" if reply.first_audio_at else "—"
-            logger.info("[%s] цикл %.1f с, первый звук %s (STT %.1f, LLM %.1f, TTS %.1f)", conn.id,
-                        time.time() - t_start, first, t_stt, timing["llm"], timing["tts"])
+            logger.info("[%s] цикл %.1f с, первый звук %s (STT %.1f, LLM %.1f, TTS %.1f)%s", conn.id,
+                        time.time() - t_start, first, t_stt, timing["llm"], timing["tts"], self._llm_note())
         except Exception as e:
             logger.exception("[%s] ошибка process_audio: %s", conn.id, e)
             await self.speak(conn, pz.phrase("error", conn.settings))
@@ -356,7 +364,7 @@ class Gateway:
             device = db.get(Device, conn.device_id)
             if device is None:
                 return False
-            ctx = skills.Context(db, device, conn.settings, push_config=conn.push_config)
+            ctx = skills.Context(db, device, conn.settings, push_config=conn.push_config, history=conn.history)
             result = await skills.run(intent, ctx)
         if result is None:
             return False

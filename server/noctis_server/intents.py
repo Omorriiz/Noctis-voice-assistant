@@ -10,6 +10,7 @@
 import re
 from dataclasses import dataclass, field
 
+from . import smalltalk
 from .numwords import ALIAS_WORDS, find_numbers, normalize
 
 SHORT_COMMAND_TOKENS = 5
@@ -542,4 +543,7 @@ def parse(text: str, lang: str) -> Intent | None:
             return Intent("music_prev")
         if L["ctl_stop"].search(t):
             return Intent("stop")
+    # ---- бытовые реплики без LLM: «привет», «спасибо», «кто ты», «повтори»
+    if (kind := smalltalk.detect(t, lang)):
+        return Intent("smalltalk", {"kind": kind})
     return None

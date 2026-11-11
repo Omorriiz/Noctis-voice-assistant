@@ -333,6 +333,45 @@ def test_player_decoder_error_and_offline(monkeypatch):
     assert asyncio.run(MusicSession("x").play([])) is False
 
 
+def test_player_skips_unplayable_track_and_plays_next(monkeypatch):
+    """Недоступный трек (например, Jamendo ответил 404) не останавливает очередь: играем следующий."""
+    def open_(uri):
+        if uri == "dead":
+            return dead()
+        return iter([b"\x02\x00" * 3200] * 3)
+
+    def dead():
+        raise decoder.DecoderError("HTTP Error 404: Not Found")
+        yield
+
+    monkeypatch.setattr(decoder, "OPEN", open_)
+    session, sent = make_session()
+    tracks = [Track("Dead", "", "jamendo", "dead"), Track("Alive", "", "jamendo", "alive")]
+
+    async def go():
+        assert await session.play(tracks) is True
+        for _ in range(100):
+            if session.state == "stopped":
+                break
+            await asyncio.sleep(0.01)
+    asyncio.run(go())
+    assert [m["index"] for m in sent if m["type"] == "music_start"] == [0, 1]
+    assert [m["reason"] for m in sent if m["type"] == "music_end"] == ["error", "end"]
+    assert types(sent).count("music_chunk") == 6
+
+
+def test_player_stops_when_every_track_is_unplayable(monkeypatch):
+    def broken(uri):
+        raise decoder.DecoderError("HTTP Error 404: Not Found")
+        yield
+
+    monkeypatch.setattr(decoder, "OPEN", broken)
+    session, sent = make_session()
+    assert asyncio.run(session.play([Track("A", "", "jamendo", "a"), Track("B", "", "jamendo", "b")])) is False
+    assert "404" in session.last_error and session.state == "stopped"
+    assert types(sent).count("music_start") == 2
+
+
 def test_decoder_real_file_and_http_stream(tmp_path):
     wav = tmp_path / "t.wav"
     wav.write_bytes(wav_bytes(tmp_path, "src.wav", seconds=2.0, rate=44100))

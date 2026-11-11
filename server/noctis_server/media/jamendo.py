@@ -7,6 +7,7 @@
   * теги жанров у Jamendo английские (jazz, rock, relaxation…), поэтому русские слова «джаз», «спокойная» сопоставляются тегам;
   * удачные ответы запоминаются на полчаса (быстрее и переживают сбой сети/Jamendo).
 """
+import logging
 import re
 import threading
 import time
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Session
 from ..config import settings
 from ..models import MediaTrack
 
+log = logging.getLogger("noctis.jamendo")
 TIMEOUT = 8.0
 PARALLEL = 3                 # запросов в пачке
 ROUNDS = 2                   # пачек подряд, если все пришли пустыми
@@ -194,6 +196,40 @@ def search(query: str, limit: int = 10) -> list[dict]:
             return list(stale[1])
         raise JamendoError(str(last_error)) from last_error
     return []
+
+
+def evict(uri: str) -> int:
+    """Убирает трек с этим адресом потока из кэша поиска (чтобы следующий запрос не предложил его снова). Возвращает число удалённых."""
+    removed = 0
+    with _cache_lock:
+        for key in list(_cache):
+            stamp, results = _cache[key]
+            kept = [r for r in results if r.get("uri") != uri]
+            if len(kept) != len(results):
+                removed += len(results) - len(kept)
+                if kept:
+                    _cache[key] = (stamp, kept)
+                else:
+                    del _cache[key]                    # пустой список в кэше не держим: следующий запрос сходит в Jamendo заново
+    return removed
+
+
+def forget(uri: str, track_id: int | None = None) -> None:
+    """Трек Jamendo оказался недоступным (поток ответил 404/410): убрать его из кэша и из библиотеки пользователя."""
+    evict(uri)
+    from ..db import SessionLocal
+    try:
+        with SessionLocal() as db:
+            rows = db.scalars(select(MediaTrack).where(MediaTrack.source == "jamendo", MediaTrack.uri == uri)).all()
+            if track_id is not None:
+                row = db.get(MediaTrack, track_id)
+                if row is not None and row.source == "jamendo" and row not in rows:
+                    rows.append(row)
+            for row in rows:
+                db.delete(row)
+            db.commit()
+    except Exception as e:
+        log.warning("не удалось убрать недоступный трек из базы: %s", e)
 
 
 def to_tracks(db: Session, user_id: int, results: list[dict]) -> list[MediaTrack]:

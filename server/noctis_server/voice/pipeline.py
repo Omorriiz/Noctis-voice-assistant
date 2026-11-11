@@ -21,9 +21,20 @@ except ImportError:
     num2words = None
 
 
+# Ollama: если сервер модели завис, запрос не должен ждать вечно. Ожидание данных — с запасом на первую загрузку модели
+# в память (десятки секунд), но не бесконечное; после этого пользователь услышит «ошибка при генерации ответа».
+OLLAMA_CONNECT_TIMEOUT_SEC = 5.0
+OLLAMA_READ_TIMEOUT_SEC = 180.0
+_ollama_client = None
+
+
 def chat(**kwargs):
-    from ollama import chat as _chat
-    return _chat(**kwargs)
+    global _ollama_client
+    if _ollama_client is None:
+        import httpx
+        from ollama import Client
+        _ollama_client = Client(timeout=httpx.Timeout(OLLAMA_READ_TIMEOUT_SEC, connect=OLLAMA_CONNECT_TIMEOUT_SEC))
+    return _ollama_client.chat(**kwargs)
 
 
 # ============================================================
@@ -79,6 +90,11 @@ TTS_PAUSE_SEC     = 0.15            # пауза между частями
 # чтобы не синтезировать по одному слову.
 MIN_SENTENCE_CHARS = 25
 SENTENCE_END_RE    = re.compile(r"[.!?…]+[»\"')]*\s+")
+# Первый кусок ответа отдаётся на озвучку раньше остальных: короткое предложение (от FIRST_SENTENCE_CHARS)
+# или часть предложения до запятой/двоеточия/тире (от FIRST_CLAUSE_CHARS). Дальше — обычные предложения.
+FIRST_SENTENCE_CHARS = 12
+FIRST_CLAUSE_CHARS   = 28
+CLAUSE_END_RE        = re.compile(r"[,;:—–]\s+")
 
 # --- Фразы-галлюцинации Whisper на тишине/шуме (такой «текст» считается пустым) ---
 WHISPER_HALLUCINATIONS = [
@@ -293,6 +309,7 @@ class VoiceAssistant:
         self.tts_model = None          # модель русского (совместимость с CLI)
         self.tts_models: dict = {}     # язык -> модель Silero
         self.beam_size = beam_size
+        self.last_llm_stats: dict = {}      # замеры последнего запроса к LLM (см. _llm_stats)
 
         # История диалога хранится в соединении устройства (у каждого своя), не здесь
 
@@ -359,8 +376,27 @@ class VoiceAssistant:
                 keep_alive=OLLAMA_KEEP_ALIVE,
             )
             print(f"[LLM] Прогрев за {time.time() - t0:.1f} сек")
+            self._report_gpu_fit()
         except Exception as e:
             print(f"[LLM] Прогрев не удался: {e}")
+
+    @staticmethod
+    def _gpu_fit(size: int, size_vram: int) -> float:
+        """Доля модели в видеопамяти (0..1). Если меньше единицы, часть слоёв считает процессор — ответы медленные."""
+        return size_vram / size if size > 0 else 0.0
+
+    def _report_gpu_fit(self):
+        try:
+            from ollama import ps
+            for m in ps().models:
+                if m.model and OLLAMA_MODEL.split(":")[0] in m.model:
+                    share = self._gpu_fit(int(m.size or 0), int(m.size_vram or 0))
+                    print(f"[LLM] В видеопамяти {share * 100:.0f}% модели ({(m.size_vram or 0) / 2**30:.1f} из {(m.size or 0) / 2**30:.1f} ГБ)")
+                    if share < 0.98:
+                        print("[LLM] ВНИМАНИЕ: модель не помещается в видеопамять целиком, часть слоёв считает процессор — "
+                              "ответы медленнее. Закройте другие программы на видеокарте или уменьшите NOCTIS_WHISPER_COMPUTE.")
+        except Exception as e:
+            print(f"[LLM] Не удалось узнать, где работает модель: {e}")
 
     def _choose_mode(self, user_text: str) -> tuple[str, int, str]:
         """
@@ -377,12 +413,29 @@ class VoiceAssistant:
             return SHORT_SYSTEM_PROMPT, 80, "короткий"
 
     @staticmethod
-    def _split_point(buffer: str) -> int | None:
-        """Позиция конца первого законченного предложения не короче MIN_SENTENCE_CHARS."""
+    def _split_point(buffer: str, first: bool = False) -> int | None:
+        """Позиция конца первого законченного предложения не короче MIN_SENTENCE_CHARS.
+        first=True — самый первый кусок ответа: границы мягче, чтобы звук начался раньше."""
         for m in SENTENCE_END_RE.finditer(buffer):
-            if m.end() >= MIN_SENTENCE_CHARS:
+            if m.end() >= (FIRST_SENTENCE_CHARS if first else MIN_SENTENCE_CHARS):
                 return m.end()
+        if first:
+            for m in CLAUSE_END_RE.finditer(buffer):
+                if m.end() >= FIRST_CLAUSE_CHARS:
+                    return m.end()
         return None
+
+    @staticmethod
+    def _llm_stats(final: dict, t_request: float, t_first_token: float | None) -> dict:
+        """Замеры Ollama из последнего куска ответа (время в наносекундах): где уходят секунды."""
+        def sec(key):
+            return float(final.get(key) or 0) / 1e9
+        tokens = int(final.get("eval_count") or 0)
+        eval_sec = sec("eval_duration")
+        return {"load": sec("load_duration"), "prompt": sec("prompt_eval_duration"),
+                "prompt_tokens": int(final.get("prompt_eval_count") or 0), "tokens": tokens,
+                "tok_per_sec": tokens / eval_sec if eval_sec > 0 else 0.0,
+                "first_token": t_first_token, "total": time.time() - t_request}
 
     def ask_llm_stream(self, user_text: str, history: deque | None = None,
                        system_prompt: str | None = None, num_predict: int | None = None,
@@ -408,6 +461,7 @@ class VoiceAssistant:
         t0 = time.time()
         t_first = None
         buffer, sentences, truncated = "", [], False
+        t_first_token, final = None, {}
         try:
             for part in chat(
                 model=OLLAMA_MODEL,
@@ -423,10 +477,14 @@ class VoiceAssistant:
                 },
                 keep_alive=OLLAMA_KEEP_ALIVE,
             ):
+                if t_first_token is None and part["message"]["content"]:
+                    t_first_token = time.time() - t0
                 buffer += part["message"]["content"]
-                if part.get("done") and part.get("done_reason") == "length":
-                    truncated = True
-                while (cut := self._split_point(buffer)) is not None:
+                if part.get("done"):
+                    final = part
+                    if part.get("done_reason") == "length":
+                        truncated = True
+                while (cut := self._split_point(buffer, first=not sentences)) is not None:
                     sentence, buffer = buffer[:cut].strip(), buffer[cut:]
                     if t_first is None:
                         t_first = time.time() - t0
@@ -449,6 +507,11 @@ class VoiceAssistant:
             sentences.append(tail)
             yield tail
 
+        self.last_llm_stats = self._llm_stats(final, t0, t_first_token)
+        st = self.last_llm_stats
+        print(f"[LLM] Замеры: первый токен {st['first_token'] or 0:.2f} с, загрузка модели {st['load']:.2f} с, "
+              f"разбор запроса {st['prompt']:.2f} с ({st['prompt_tokens']} ток.), генерация {st['tokens']} ток. "
+              f"со скоростью {st['tok_per_sec']:.1f} ток/с")
         answer = " ".join(sentences)
         history.append({"role": "user", "content": user_text})
         history.append({"role": "assistant", "content": answer})

@@ -43,7 +43,7 @@ def test_voice_mapping_covers_every_language_and_gender():
 @pytest.mark.parametrize("lang,char", list(itertools.product(LANGUAGES, CHARACTERS)))
 def test_prompt_for_every_character_and_language(lang, char):
     prompt, num_predict, mode = pz.build_system_prompt({"language": lang, "character_id": char}, "hola")
-    assert mode == "short" and num_predict == 80
+    assert mode == "short" and num_predict == 70
     assert pz.STYLE[lang][char] in prompt            # характер попал в промпт
     assert "Nils" in prompt or "Нильс" in prompt
     assert "{" not in prompt and "}" not in prompt   # все подстановки выполнены
@@ -249,8 +249,8 @@ def test_assistant_applies_character_language_and_length(real_assistant):
     assert out and a.chat_calls
     call = a.chat_calls[0]
     system = call["messages"][0]["content"]
-    assert "sarcastic" in system and "Always answer in English" in system and "six to ten sentences" in system
-    assert call["options"]["num_predict"] == 600       # длинный режим по триггеру "explain"
+    assert "sarcastic" in system and "Always answer in English" in system and "four to six sentences" in system
+    assert call["options"]["num_predict"] == 400       # длинный режим по триггеру "explain"
     assert hist[-1]["role"] == "assistant"              # история ведётся
 
     list(a.ask_llm_stream("привет", None, {"language": "ru", "character_id": "formal"}))

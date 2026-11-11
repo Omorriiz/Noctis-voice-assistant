@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     ollama_model: str = "OxW/Vikhr-Nemo-12B-Instruct-R-21-09-24:q4_K_M"
     output_dir: str = str(BASE_DIR / "data" / "output")
     log_dir: str = str(BASE_DIR / "logs")
+    log_keep_days: int = 14                # журналы старше этого числа дней удаляются при запуске (0 — не удалять)
+    backup_on_start: bool = True           # раз в сутки при запуске: копия базы data/backups/noctis-auto-ГГГГММДД.db
+    backup_keep: int = 7                   # сколько автоматических копий хранить
 
     # Музыка (этап 5): собственная библиотека, Jamendo API, интернет-радио — других источников нет
     music_dir: str = str(BASE_DIR / "data" / "music")   # <music_dir>/<id пользователя>/*.mp3|flac|ogg|wav

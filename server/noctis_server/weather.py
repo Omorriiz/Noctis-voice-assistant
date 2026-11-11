@@ -22,8 +22,8 @@ from .numwords import agree, noun, to_words
 
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
-TIMEOUT = 6.0
-PARALLEL = 2
+TIMEOUT = 4.0
+PARALLEL = 3
 ROUNDS = 2
 GEO_TTL_SEC = 24 * 3600
 FORECAST_TTL_SEC = 15 * 60
@@ -53,24 +53,26 @@ class Place:
 
 # ------------------------------------------------------------------ сеть
 def _get_json(url: str, params: dict) -> dict:
+    """Запрос с параллельными попытками: берём первый ответ, а зависшие не ждём (иначе один «подвисший» запрос задерживает всех)."""
     last: Exception | None = None
+
+    def one():
+        with httpx.Client(timeout=TIMEOUT, transport=transport) as client:
+            r = client.get(url, params=params)
+            r.raise_for_status()
+            return r.json()
+
     for _ in range(ROUNDS):
-        with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
-            def one():
-                with httpx.Client(timeout=TIMEOUT, transport=transport) as client:
-                    r = client.get(url, params=params)
-                    r.raise_for_status()
-                    return r.json()
+        pool = ThreadPoolExecutor(max_workers=PARALLEL)
+        try:
             futures = [pool.submit(one) for _ in range(PARALLEL)]
             for fut in as_completed(futures):
                 try:
-                    body = fut.result()
+                    return fut.result()
                 except (httpx.HTTPError, ValueError) as e:
                     last = e
-                    continue
-                for other in futures:
-                    other.cancel()
-                return body
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     raise WeatherError(str(last) if last else "no answer")
 
 
@@ -171,30 +173,49 @@ def place_from_timezone(tz: str, lang: str = "en") -> Place | None:
 
 
 # ------------------------------------------------------------------ прогноз
-def forecast(place: Place) -> dict:
-    """Данные на сегодня: now_temp, high, low, code, precip_prob, precip_sum, wind_ms."""
+MAX_DAY = 2          # сегодня, завтра, послезавтра
+FORECAST_DAYS = MAX_DAY + 1
+
+
+def forecast(place: Place, day: int = 0) -> dict:
+    """Данные на день (0 — сегодня, 1 — завтра, 2 — послезавтра): now_temp (только для сегодня), high, low, code,
+    precip_prob, precip_sum, wind_ms. Прогноз на все дни запрашивается одним запросом и запоминается."""
+    if not 0 <= day <= MAX_DAY:
+        raise WeatherError("day out of range")
     key = ("fc", round(place.latitude, 2), round(place.longitude, 2))
 
     def make():
         body = _get_json(FORECAST_URL, {
-            "latitude": place.latitude, "longitude": place.longitude, "timezone": "auto", "forecast_days": 1,
+            "latitude": place.latitude, "longitude": place.longitude, "timezone": "auto", "forecast_days": FORECAST_DAYS,
             "wind_speed_unit": "ms",
             "current": "temperature_2m,weather_code,wind_speed_10m",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max"})
         daily, cur = body.get("daily") or {}, body.get("current") or {}
 
-        def first(key):
-            v = daily.get(key) or [None]
-            return v[0]
+        def at(name, i):
+            v = daily.get(name) or []
+            return v[i] if i < len(v) else None
 
-        if first("temperature_2m_max") is None or first("temperature_2m_min") is None:
+        days = []
+        for i in range(FORECAST_DAYS):
+            if at("temperature_2m_max", i) is None or at("temperature_2m_min", i) is None:
+                break
+            code = at("weather_code", i)
+            wind = at("wind_speed_10m_max", i)
+            days.append({"high": at("temperature_2m_max", i), "low": at("temperature_2m_min", i),
+                         "code": int(code if code is not None else (cur.get("weather_code") or 0) if i == 0 else 0),
+                         "precip_prob": at("precipitation_probability_max", i), "precip_sum": at("precipitation_sum", i) or 0.0,
+                         "wind_ms": wind if wind is not None else (cur.get("wind_speed_10m") if i == 0 else None)})
+        if not days:
             raise WeatherError("no daily data")
-        return {"now_temp": cur.get("temperature_2m"), "high": first("temperature_2m_max"), "low": first("temperature_2m_min"),
-                "code": int(first("weather_code") if first("weather_code") is not None else (cur.get("weather_code") or 0)),
-                "precip_prob": first("precipitation_probability_max"), "precip_sum": first("precipitation_sum") or 0.0,
-                "wind_ms": first("wind_speed_10m_max") if first("wind_speed_10m_max") is not None else cur.get("wind_speed_10m")}
+        return {"now_temp": cur.get("temperature_2m"), "days": days}
 
-    return _cached(key, FORECAST_TTL_SEC, make)
+    full = _cached(key, FORECAST_TTL_SEC, make)
+    if day >= len(full["days"]):
+        raise WeatherError("no forecast for that day")
+    data = dict(full["days"][day])
+    data["now_temp"] = full["now_temp"] if day == 0 else None        # «сейчас» есть только у сегодняшнего дня
+    return data
 
 
 # ------------------------------------------------------------------ фразы
@@ -238,6 +259,10 @@ UNIT = {
 }
 MINUS = _L("минус", "minus", "menos", "minus", "moins")
 FORMS = {   # шаблоны фраз; {place} уже с предлогом
+    "head_1": _L("Завтра {place} {desc}.", "Tomorrow {place}, {desc}.", "Mañana {place}: {desc}.", "Morgen {place}: {desc}.",
+                 "Demain {place} : {desc}."),
+    "head_2": _L("Послезавтра {place} {desc}.", "The day after tomorrow {place}, {desc}.", "Pasado mañana {place}: {desc}.",
+                 "Übermorgen {place}: {desc}.", "Après-demain {place} : {desc}."),
     "head": _L("Сегодня {place} {desc}.", "Today {place}, {desc}.", "Hoy {place}: {desc}.", "Heute {place}: {desc}.",
                "Aujourd'hui {place} : {desc}."),
     "temps": _L("Сейчас {now}, днём {hi}, ночью {lo}.", "Right now it is {now}, with a high of {hi} and a low of {lo}.",
@@ -316,10 +341,10 @@ def _in_place(place: Place, lang: str) -> str:
     return f"in {name}" if lang in ("en", "de") else f"en {name}"
 
 
-def describe(place: Place, data: dict, lang: str) -> str:
-    """Фраза для озвучивания (числа словами)."""
+def describe(place: Place, data: dict, lang: str, day: int = 0) -> str:
+    """Фраза для озвучивания (числа словами). day: 0 — сегодня, 1 — завтра, 2 — послезавтра."""
     desc = TEXT[DESC.get(data["code"], "partly_cloudy")][lang]
-    parts = [FORMS["head"][lang].format(place=_in_place(place, lang), desc=desc)]
+    parts = [FORMS["head" if day == 0 else f"head_{min(day, MAX_DAY)}"][lang].format(place=_in_place(place, lang), desc=desc)]
     hi, lo = _temp(data["high"], lang), _temp(data["low"], lang)
     if data.get("now_temp") is not None:
         parts.append(FORMS["temps"][lang].format(now=_temp(data["now_temp"], lang), hi=hi, lo=lo))

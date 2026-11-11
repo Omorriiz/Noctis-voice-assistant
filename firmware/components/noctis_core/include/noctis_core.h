@@ -18,7 +18,7 @@ extern "C" {
 #define NOCTIS_API
 #endif
 
-#define NOCTIS_FIRMWARE_VERSION "0.4.0"
+#define NOCTIS_FIRMWARE_VERSION "0.5.0"
 
 // Допустимые значения (совпадают с server/noctis_server/catalog.py)
 #define NOCTIS_WAKE_WORD_MAX 64

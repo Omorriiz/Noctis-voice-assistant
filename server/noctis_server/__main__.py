@@ -29,6 +29,9 @@ def migrate() -> None:
 if __name__ == "__main__":
     setup_logging()
     (BASE_DIR / "data").mkdir(exist_ok=True)
+    if settings.backup_on_start:
+        from .backup import auto_backup
+        auto_backup()                      # копия базы до миграций: если обновление что-то сломает, есть откуда вернуться
     migrate()
     ip = local_ip()
     print(f"\nNOCTIS — голосовой сервер\n  WebSocket: ws://{ip}:8000{settings.ws_path}\n"

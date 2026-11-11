@@ -13,7 +13,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import registry, scheduler as sch, weather
+from . import registry, scheduler as sch, smalltalk, weather
 from .intents import Intent
 from .media import jamendo, library, radio
 from .media.player import MusicSession, Track
@@ -42,6 +42,7 @@ class Context:
     settings: dict                   # настройки устройства (язык, пол голоса, пояс ...)
     push_config: object = None       # async (dict) -> None
     now: object = None               # datetime UTC (в тестах фиксируется)
+    history: object = None           # история диалога соединения (для «повтори»)
     lang: str = field(init=False)
 
     def __post_init__(self):
@@ -159,9 +160,6 @@ T = {
     "weather_error": L("Сейчас не получается узнать погоду. Попробуйте позже.", "I can't get the weather right now. Please try again later.",
                        "Ahora no puedo consultar el tiempo. Inténtalo más tarde.", "Ich kann das Wetter gerade nicht abrufen. Bitte versuchen Sie es später.",
                        "Je ne peux pas obtenir la météo pour le moment. Réessayez plus tard."),
-    "weather_today_only": L("Я пока знаю прогноз только на сегодня.", "I only know today's forecast for now.",
-                            "Por ahora solo conozco el pronóstico de hoy.", "Ich kenne vorerst nur die Vorhersage für heute.",
-                            "Pour l'instant, je ne connais que les prévisions d'aujourd'hui."),
 }
 
 
@@ -175,10 +173,18 @@ def owner_id(db: Session, device: Device) -> int | None:
                      .order_by(UserDevice.is_owner.desc(), UserDevice.id))
 
 
+async def _track_gone(track: Track) -> None:
+    """Поток трека ответил «не найден» (404/410): трек Jamendo убираем из кэша поиска и из библиотеки, чтобы не предлагать снова."""
+    import asyncio
+    if track.source == "jamendo":
+        await asyncio.to_thread(jamendo.forget, track.uri, track.track_id)
+
+
 def get_session(public_id: str) -> MusicSession:
     session = registry.players.get(public_id)
     if session is None:
         session = registry.players[public_id] = MusicSession(public_id)
+        session.on_gone = _track_gone
     return session
 
 
@@ -378,7 +384,7 @@ async def _music_play(it: Intent, ctx: Context) -> Reply:
         say = tr("radio_playing", lang, what=tracks[0].title)
     else:
         if source in (None, "local") and uid:
-            found = library.search(ctx.db, uid, query)
+            found = library.drop_missing(ctx.db, library.search(ctx.db, uid, query))
             if found and not query:
                 random.shuffle(found)
             tracks = _tracks(found)
@@ -412,9 +418,10 @@ async def _music_play(it: Intent, ctx: Context) -> Reply:
 
 
 async def _weather(it: Intent, ctx: Context) -> Reply:
-    """Погода на сегодня: место из фразы, иначе домашний город из настроек, иначе город часового пояса устройства."""
+    """Погода на сегодня, завтра или послезавтра: место из фразы, иначе домашний город из настроек, иначе город часового пояса устройства."""
     import asyncio
     lang = ctx.lang
+    day = max(0, min(weather.MAX_DAY, int(it.params.get("day") or 0)))
     named = (it.params.get("place") or "").strip()
     home = (getattr(ctx.device.settings, "home_city", "") or "").strip()
     try:
@@ -431,16 +438,13 @@ async def _weather(it: Intent, ctx: Context) -> Reply:
                 place = await asyncio.to_thread(weather.place_from_timezone, ctx.device.settings.timezone, lang)
             if place is None:
                 return Reply(tr("weather_no_place", lang))
-        data = await asyncio.to_thread(weather.forecast, place)
+        data = await asyncio.to_thread(weather.forecast, place, day)
     except weather.PlaceNotFound:
         return Reply(tr("weather_not_found", lang))
     except weather.WeatherError as e:
         log.warning("погода недоступна: %s", e)
         return Reply(tr("weather_error", lang))
-    text = weather.describe(place, data, lang)
-    if it.params.get("day"):
-        text = tr("weather_today_only", lang) + " " + text
-    return Reply(text)
+    return Reply(weather.describe(place, data, lang, day))
 
 
 async def _jamendo_search(query: str):
@@ -497,6 +501,17 @@ async def _volume(it: Intent, ctx: Context) -> Reply:
     return Reply(tr("volume", ctx.lang, n=to_words(value, ctx.lang)))
 
 
+# ------------------------------------------------------------------ бытовые реплики
+def _smalltalk(it: Intent, ctx: Context) -> Reply:
+    kind = it.params.get("kind", "")
+    if kind == "repeat":
+        for message in reversed(list(ctx.history or [])):
+            if message.get("role") == "assistant" and message.get("content"):
+                return Reply(message["content"])
+        return Reply(smalltalk.reply("repeat_none", ctx.lang))
+    return Reply(smalltalk.reply(kind, ctx.lang))
+
+
 # ------------------------------------------------------------------ точка входа
 async def run(intent: Intent, ctx: Context) -> Reply | None:
     k = intent.kind
@@ -528,6 +543,8 @@ async def run(intent: Intent, ctx: Context) -> Reply | None:
         return await _stop(intent, ctx)
     if k in ("volume_set", "volume_up", "volume_down"):
         return await _volume(intent, ctx)
+    if k == "smalltalk":
+        return _smalltalk(intent, ctx)
     return None
 
 

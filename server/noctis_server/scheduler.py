@@ -271,7 +271,7 @@ class SchedulerService:
         self.gateway = gateway
         self.notify = notify          # async (conn, Fired) -> None: фраза на языке устройства
         self.task: asyncio.Task | None = None
-        self._last_sync = 0.0
+        self._last_sync = float("-inf")      # первая рассылка времени сразу (monotonic на Windows считается от загрузки ПК и может быть малым)
 
     def start(self):
         self.task = asyncio.create_task(self.run())

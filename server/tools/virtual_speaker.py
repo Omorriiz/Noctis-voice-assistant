@@ -8,6 +8,7 @@ noctis_core, скомпилированный в библиотеку и выз�
 динамик (накопление принятых чанков), загрузка OTA (HTTP-клиент передаётся снаружи), перезагрузка.
 """
 import base64
+import re
 import ctypes
 import hashlib
 import json
@@ -99,7 +100,8 @@ PLAYER_IDLE, PLAYER_BUFFERING, PLAYER_PLAYING, PLAYER_PAUSED = 0, 1, 2, 3
 PLAYER_BUFFER_BYTES = 96 * 1024
 ENGINE_ESP_SR, ENGINE_MWW = 0, 1
 MSG_OTHER, MSG_CONFIG, MSG_COMMAND = 0, 1, 2
-FIRMWARE_VERSION = "0.4.0"
+FIRMWARE_VERSION = re.search(r'NOCTIS_FIRMWARE_VERSION "([^"]+)"',   # версия «установленной» прошивки — из заголовка настоящей прошивки
+                             (FIRMWARE / "components/noctis_core/include/noctis_core.h").read_text(encoding="utf-8")).group(1)
 
 
 def build_core_library(out_dir: Path) -> Path:

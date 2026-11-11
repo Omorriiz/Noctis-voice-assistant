@@ -247,7 +247,7 @@ static void test_sched_builders_melodies_and_command(void) {
     noctis_command_t c;
     const char* sr = "{\"type\":\"command\",\"name\":\"stop_ring\"}";
     CHECK(noctis_parse_server_message(sr, strlen(sr), NULL, &c) == NOCTIS_MSG_COMMAND && c.cmd == NOCTIS_CMD_STOP_RING);
-    CHECK(STREQ(NOCTIS_FIRMWARE_VERSION, "0.4.0"));
+    CHECK(STREQ(NOCTIS_FIRMWARE_VERSION, "0.5.0"));
 }
 
 /* ============================================================ буфер и base64 */

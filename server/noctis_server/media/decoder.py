@@ -16,7 +16,7 @@ log = logging.getLogger("noctis.decoder")
 
 SAMPLE_RATE = 16000
 FRAMES_PER_READ = 1600          # 100 мс
-CONNECT_TIMEOUT_SEC = 10.0
+CONNECT_TIMEOUT_SEC = 8.0
 STALL_TIMEOUT_SEC = 15.0        # столько ждём данных от потока, потом считаем его оборвавшимся
 BUFFER_BYTES = 96 * 1024
 USER_AGENT = "Noctis/0.4"

@@ -10,6 +10,7 @@
 import asyncio
 import base64
 import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -17,11 +18,12 @@ from .. import registry
 from . import decoder
 
 log = logging.getLogger("noctis.player")
+GONE_RE = re.compile(r"HTTP Error (404|410)\b")      # поток удалён насовсем (а не «сеть моргнула»)
 
 CHUNK_BYTES = 3200                 # 100 мс
 BYTES_PER_SEC = 32000
 LEAD_SEC = 6.0                     # на столько секунд сервер опережает воспроизведение (буфер платы 12 с): рывки Wi-Fi не слышны
-START_TIMEOUT_SEC = 10.0
+START_TIMEOUT_SEC = 25.0       # с запасом на пропуск недоступного трека и медленное открытие потока
 realtime = True                    # в тестах выключается (без пауз между чанками)
 
 
@@ -45,6 +47,7 @@ class MusicSession:
     def __init__(self, public_id: str, send=None):
         self.public_id = public_id
         self._send_override = send
+        self.on_gone = None                # async-колбэк(track): поток недоступен навсегда (404/410), например трек Jamendo удалён
         self.state = "stopped"             # stopped | playing | paused
         self.queue: list[Track] = []
         self.index = 0
@@ -172,9 +175,11 @@ class MusicSession:
                 reason = await self._stream(track, gen)
                 if gen != self._gen:
                     return
-                await self._send({"type": "music_end", "reason": reason})
+                await self._send({"type": "music_end", "reason": "error" if reason == "unplayable" else reason})
                 if reason == "error" or track.live or self.index + 1 >= len(self.queue):
-                    break                          # ошибка, конец радиопотока или очереди
+                    break                          # ошибка связи, конец радиопотока или очереди
+                if reason == "unplayable":
+                    log.info("[%s] трек недоступен, пробую следующий", self.public_id)
                 self.index += 1
             if gen == self._gen:
                 self.state = "stopped"
@@ -200,7 +205,12 @@ class MusicSession:
                 except decoder.DecoderError as e:
                     self.last_error = str(e)
                     log.warning("[%s] не удалось декодировать %s: %s", self.public_id, track.title, e)
-                    return "error"
+                    if GONE_RE.search(str(e)) and self.on_gone is not None:
+                        try:
+                            await self.on_gone(track)
+                        except Exception:
+                            log.exception("[%s] ошибка обработки недоступного трека", self.public_id)
+                    return "unplayable"        # трек не открылся или оборвался: пробуем следующий (для радио — остановка)
                 if chunk is None:
                     return "end"
                 for off in range(0, len(chunk), CHUNK_BYTES):
@@ -229,4 +239,7 @@ class MusicSession:
         finally:
             close = getattr(it, "close", None)
             if close:
-                close()
+                try:
+                    close()
+                except ValueError:
+                    pass       # генератор ещё читает поток в рабочем потоке (трек отменили на середине): закроется сам, когда чтение вернётся

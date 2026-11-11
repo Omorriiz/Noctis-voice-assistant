@@ -24,7 +24,7 @@ def voice_for(device_settings: dict | None) -> tuple[str, str]:
 
 # ---------------------------------------------------------------- режимы длины ответа
 # (максимум слов, num_predict)
-MODES = {"short": (15, 80), "medium": (50, 250), "long": (150, 600)}
+MODES = {"short": (12, 70), "medium": (40, 180), "long": (100, 400)}
 
 LONG_TRIGGERS = {
     "ru": ["подробно", "подробнее", "поподробнее", "развёрнуто", "развернуто", "расскажи", "объясни",
@@ -85,12 +85,12 @@ BASE_PROMPT = {
           "Always answer in French (français), whatever language the user's text looks like.",
 }
 LENGTH_RULE = {
-    "ru": {"short": "Отвечай ОДНИМ-ДВУМЯ короткими предложениями, максимум {w} слов.",
-           "medium": "Отвечай тремя-пятью предложениями, максимум {w} слов.",
-           "long": "Отвечай развёрнуто, но структурированно: шесть-десять предложений, максимум {w} слов."},
-    "en": {"short": "Reply in ONE or TWO short sentences, at most {w} words.",
-           "medium": "Reply in three to five sentences, at most {w} words.",
-           "long": "Reply in detail but in an organized way: six to ten sentences, at most {w} words."},
+    "ru": {"short": "Отвечай ОДНИМ-ДВУМЯ короткими предложениями, максимум {w} слов. Сразу главное, без вступлений и без повтора вопроса.",
+           "medium": "Отвечай двумя-тремя предложениями, максимум {w} слов. Сразу главное, без вступлений.",
+           "long": "Отвечай развёрнуто, но по делу: четыре-шесть предложений, максимум {w} слов. Сразу главное, без вступлений."},
+    "en": {"short": "Reply in ONE or TWO short sentences, at most {w} words. Lead with the answer: no preamble, do not repeat the question.",
+           "medium": "Reply in two or three sentences, at most {w} words. Lead with the answer, no preamble.",
+           "long": "Reply in detail but to the point: four to six sentences, at most {w} words. Lead with the answer, no preamble."},
 }
 # Правила длины для es/de/fr — на английском (инструкции модели), язык ответа задан в BASE_PROMPT
 for _l in ("es", "de", "fr"):

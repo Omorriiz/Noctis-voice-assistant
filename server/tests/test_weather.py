@@ -188,9 +188,58 @@ def test_skill_errors_are_spoken(client, auth, monkeypatch):
     assert run_skill(client, auth, "what is the weather in london", lang="en").text.startswith("I can't get the weather")
 
 
-def test_skill_tomorrow_warns_it_only_knows_today(client, auth, monkeypatch):
-    serve(monkeypatch, geo={"москва": GEO_MOSCOW})
-    assert run_skill(client, auth, "погода завтра в Москве").text.startswith("Я пока знаю прогноз только на сегодня. Сегодня в Москве")
+FORECAST3 = {"current": {"temperature_2m": 6.3, "weather_code": 0, "wind_speed_10m": 2.9},
+             "daily": {"weather_code": [3, 61, 71], "temperature_2m_max": [11.9, 8.0, -1.2], "temperature_2m_min": [-2.4, 3.0, -7.0],
+                       "precipitation_probability_max": [10, 80, 90], "precipitation_sum": [0.0, 5.0, 3.0],
+                       "wind_speed_10m_max": [3.54, 7.2, 0.4]}}
+
+
+def test_skill_tomorrow_and_day_after(client, auth, monkeypatch):
+    serve(monkeypatch, geo={"москва": GEO_MOSCOW}, fc=FORECAST3)
+    tomorrow = run_skill(client, auth, "погода завтра в Москве").text
+    assert tomorrow.startswith("Завтра в Москве дождь.")
+    assert "Сейчас" not in tomorrow                                              # «сейчас» есть только у сегодняшней погоды
+    assert "Днём восемь градусов, ночью три градуса." in tomorrow and "Вероятны осадки, вероятность восемьдесят процентов." in tomorrow
+    after = run_skill(client, auth, "какая погода послезавтра в Москве").text
+    assert after.startswith("Послезавтра в Москве снег.") and "Днём минус один градус, ночью минус семь градусов." in after
+    assert "Ветра почти нет." in after
+    assert run_skill(client, auth, "какая погода в Москве").text.startswith("Сегодня в Москве пасмурно. Сейчас шесть градусов")
+
+
+def test_tomorrow_in_every_language():
+    data = weather.forecast.__globals__["MAX_DAY"]
+    assert data == 2
+    place = weather.Place("Paris", 48.8, 2.3, "France", "Europe/Paris", "PPLC")
+    d = {"high": 12.0, "low": 4.0, "code": 3, "precip_prob": 10, "precip_sum": 0.0, "wind_ms": 3.0, "now_temp": None}
+    starts = {"ru": ("Завтра", "Послезавтра"), "en": ("Tomorrow", "The day after tomorrow"), "es": ("Mañana", "Pasado mañana"),
+              "de": ("Morgen", "Übermorgen"), "fr": ("Demain", "Après-demain")}
+    for lang, (one, two) in starts.items():
+        assert weather.describe(place, d, lang, 1).startswith(one) and weather.describe(place, d, lang, 2).startswith(two)
+        assert weather.describe(place, d, lang, 0).split()[0] not in (one, two)
+        assert not any(ch.isdigit() for ch in weather.describe(place, d, lang, 1))
+
+
+def test_forecast_for_each_day_comes_from_one_request(monkeypatch):
+    calls = []
+    serve(monkeypatch, geo={"москва": GEO_MOSCOW}, fc=FORECAST3, calls=calls)
+    p = weather.find_place("москва", "ru")
+    a = weather.forecast(p, 0)
+    n = len(calls)
+    b, c = weather.forecast(p, 1), weather.forecast(p, 2)
+    assert len(calls) == n                                         # завтра и послезавтра — из того же ответа, без новых запросов
+    assert (a["high"], b["high"], c["high"]) == (11.9, 8.0, -1.2) and a["now_temp"] == 6.3 and b["now_temp"] is None
+    assert "forecast_days=3" in [u for u in calls if "forecast" in u][0]
+    for bad in (-1, 3):
+        with pytest.raises(weather.WeatherError):
+            weather.forecast(p, bad)
+
+
+def test_forecast_with_fewer_days_than_asked_is_reported(monkeypatch):
+    serve(monkeypatch, geo={"москва": GEO_MOSCOW})          # в ответе только сегодня
+    p = weather.find_place("москва", "ru")
+    assert weather.forecast(p, 0)["high"] == 11.9
+    with pytest.raises(weather.WeatherError):
+        weather.forecast(p, 1)
 
 
 def test_forecast_is_cached(monkeypatch):
@@ -215,3 +264,25 @@ def test_voice_command_end_to_end(client, auth, assistant, monkeypatch):
         assert not [c for c in assistant.calls if c[0] == "llm"]
     finally:
         ctx.__exit__(None, None, None)
+
+
+def test_a_hung_request_does_not_delay_the_answer(monkeypatch):
+    """Один «подвисший» запрос из параллельных не должен задерживать ответ, если другой уже получил данные."""
+    import threading
+    import time
+    release = threading.Event()
+    calls = {"n": 0}
+
+    class Hang(httpx.BaseTransport):
+        def handle_request(self, request):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                release.wait(5)                       # первая попытка зависла
+                raise httpx.ConnectTimeout("hung")
+            return httpx.Response(200, json={"ok": True})
+
+    monkeypatch.setattr(weather, "transport", Hang())
+    t0 = time.monotonic()
+    assert weather._get_json("https://example.test/", {}) == {"ok": True}
+    release.set()
+    assert time.monotonic() - t0 < 2
